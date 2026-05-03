@@ -1,6 +1,9 @@
- DatabricksAccessToken_Login.txt
- __pycache__/
-  *.pyc
-  *.pyo
+Databricks_CLI_Login_Method.txt
+
+/data
+
+__pycache__/
+ *.pyc
+ *.pyo
 .vscode/
- .databricks/
+.databricks/

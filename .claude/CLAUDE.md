@@ -1,0 +1,207 @@
+# Vinoworld Databricks Bundle Project
+
+## Project Purpose
+
+This is a **learning project** for converting an existing Databricks notebook pipeline into a
+Databricks Asset Bundle (DAB). The pipeline is already working in Azure Databricks. The goal
+is not to change what the pipeline does — it is to learn how to package, configure, and deploy
+it using the Bundle framework.
+
+**Teach as you go.** Before making any change, explain what you are about to do and why.
+Introduce Bundle concepts as they become relevant. Do not silently apply best practices;
+surface them with a brief explanation so Jim can learn the pattern, not just the output.
+
+---
+
+## Developer Background
+
+Jim has strong SQL Server and dimensional modeling experience, and has been learning
+Databricks/PySpark over the past several months. He understands the Medallion Architecture
+(Bronze/Silver/Gold), Unity Catalog hierarchy (catalog → schema → table), and notebook-based
+orchestration. He is new to Databricks Asset Bundles, the Databricks CLI. He does have YAML-driven
+configuration experience from Drupal, and has explored Azure Bicep.
+
+Do not over-explain PySpark or SQL concepts. Do explain Bundle-specific concepts
+(targets, resources, artifact paths, variable substitution, etc.) every time they appear.
+
+---
+
+## Project Structure
+
+```
+.
+├── Shared/                        # Shared Python utilities (canonical versions)
+│   ├── catalog_setup.py
+│   ├── notebook_init.ipynb
+│   ├── pipeline_logging.py
+│   └── pipeline_utils.py
+├── data/                          # Source CSV/JSON files
+│   ├── Arancione_2022_01.csv
+│   ├── Arancione_Products.csv
+│   ├── Celeste_2022_01.csv
+│   ├── Celeste_Products.csv
+│   ├── Currency.csv
+│   ├── Dates.csv
+│   ├── ExchangeRates.csv
+│   ├── Store.csv
+│   ├── Territory.csv
+│   ├── Verde_2022_01.json
+│   └── Verde_Products.csv
+├── jobs/
+│   └── Vinoworld_ELT_Pipeline.yaml   # Original job YAML exported from Databricks UI
+├── notebooks/
+│   ├── 000-MoveFilesFromArchiveToBronze.ipynb
+│   ├── 000-Pipeline_Logging_test.ipynb
+│   ├── 01-Pipeline_Orchestrator.ipynb
+│   ├── bronze/
+│   │   ├── brz_01_arancione_sales.ipynb
+│   │   ├── brz_02_celeste_sales.ipynb
+│   │   ├── brz_03_verde_sales.ipynb
+│   │   └── brz_04_products.ipynb
+│   ├── gold/
+│   │   └── gold_01_load_sales_fact.ipynb
+│   ├── init_pipeline_run_log.py
+│   ├── notebook_init.ipynb           # STALE — canonical version is in Shared/
+│   └── silver/
+│       ├── slvr_01_load_dim_fromcsv.ipynb
+│       ├── slvr_02_load_dim_product.ipynb
+│       ├── slvr_03_load_dim_region.ipynb
+│       └── slvr_04_load_sales.ipynb
+├── setup/
+│   └── catalog_ddl.ipynb
+├── src/
+│   └── init_pipeline_run_log.py
+└── databricks.yml                    # CREATED DURING THIS PROJECT — Bundle root config
+```
+
+**Authoritative sources:**
+- `Shared/` contains the canonical shared utilities. `notebooks/notebook_init.ipynb` is stale.
+- `jobs/Vinoworld_ELT_Pipeline.yaml` is the source job definition but will be superseded by
+  the Bundle resource definition in `databricks.yml`.
+
+---
+
+## Environments
+
+### Primary: Databricks Free Edition (learning)
+- **Workspace**: Databricks.com Free Edition (not Azure)
+- **Unity Catalog**: Included and active — metastore auto-provisioned
+- **Compute**: Serverless only — no classic clusters. Bundle job definitions must use
+  serverless compute config, not classic cluster specs.
+- **Catalog name**: Ask Jim to confirm before referencing in any YAML
+- **Authentication**: Databricks CLI with `databricks auth login`
+- **CLI status**: Not yet installed — CLI setup is the first task in this project
+- **Account console**: Not available in Free Edition — workspace-level only
+
+### Secondary: Azure Databricks (validation only)
+- The pipeline has been verified working in Azure Databricks.
+- Azure is **not used for iterative learning** — it burns credits too quickly.
+- After Bundle work is solid in Free Edition, a port to Azure is a future step.
+- Do not reference Azure-specific config or connection strings during the learning phase.
+
+---
+
+## Multi-Environment Strategy
+
+We are implementing a **single-workspace, multi-target** pattern. Since Free Edition provides
+one workspace, environments are simulated via catalog/schema naming prefixes rather than
+separate workspaces. This is the same pattern used in real single-workspace production setups.
+
+| Target  | Catalog prefix  | Purpose                         |
+|---------|----------------|---------------------------------|
+| dev     | `dev_`         | Jim's personal development runs |
+| staging | `staging_`     | Pre-production validation       |
+| prod    | (no prefix)    | Production — the live pipeline  |
+
+Bundle targets will use variable substitution to inject the correct prefix at deploy time.
+`databricks bundle deploy --target dev` vs `--target prod` is the core workflow to teach.
+
+GitHub Actions CI/CD is **out of scope for now** — focus is on local CLI-driven deployment.
+The project structure should be CI/CD-ready (clean targets, no hardcoded values) so it can
+be extended later without rework.
+
+---
+
+## Bundle Learning Sequence
+
+Work through these phases in order. Complete and validate each phase before moving to the next.
+
+### Phase 1 — CLI Setup and Authentication
+- Install Databricks CLI in WSL2/Ubuntu
+- Authenticate to the Azure Databricks workspace (`databricks auth login`)
+- Verify with `databricks workspace list /`
+
+### Phase 2 — Minimal Bundle Scaffold
+- Create `databricks.yml` (bundle name, workspace host, one target)
+- Run `databricks bundle validate` — get to a clean validate before adding resources
+- Explain the YAML schema as each section is introduced
+
+### Phase 3 - Learning Step: Create a Simple, but non-trivial bundle to create catalog, schema, table and notebooks in a new "space".  This step is to get a feel for how the CLI works before starting the conversion.
+
+### Phase 4 — Add the Job Resource
+- Convert `jobs/Vinoworld_ELT_Pipeline.yaml` into the `resources.jobs` section of `databricks.yml`
+- Explain what changes between a standalone job YAML and a Bundle resource definition
+- Run `databricks bundle deploy --target dev` and verify the job appears in the workspace
+
+### Phase 5 — Variable Substitution for Multi-Environment
+- Extract hardcoded catalog/schema names into Bundle variables
+- Configure `dev`, `staging`, and `prod` targets with environment-specific variable values
+- Deploy to dev and prod and show that each uses the correct catalog prefix
+
+### Phase 6 — Artifact Paths and Notebook Deployment
+- Understand how Bundle deploys notebooks to the workspace file system
+- Configure `artifact_path` so notebooks land in a predictable, environment-specific location
+- Verify notebook paths in the deployed job match what Bundle deployed
+
+### Phase 7 — Run and Validate
+- Trigger a job run via `databricks bundle run`
+- Compare behavior of a Bundle-triggered run vs a manual UI-triggered run
+- Review run output and logs
+
+---
+
+## Working Conventions
+
+- **Validate constantly.** After every YAML change, run `databricks bundle validate` before
+  proceeding. Treat a clean validate as the checkpoint before each next step.
+
+- **One concept at a time.** Do not introduce variable substitution and job resources in the
+  same step. Sequence changes so each step has one new concept.
+
+- **Preserve the existing pipeline logic.** Do not refactor notebook code during this project.
+  The notebooks work. The goal is packaging, not rewriting.
+
+- **Show diffs, not replacements.** When modifying `databricks.yml`, show what changed and
+  explain why. Do not silently overwrite the whole file.
+
+- **Ask before assuming catalog name.** The Unity Catalog name must be confirmed with Jim
+  before it appears in any YAML. Do not infer it from notebook code.
+
+- **WSL paths apply.** All CLI commands run in WSL2/Ubuntu. File paths use Linux conventions.
+  The project root is in the WSL filesystem (not `/mnt/c/...`).
+
+---
+
+## Key Concepts to Introduce (with brief definition each time they appear)
+
+- **Bundle** — a project-level packaging format that defines jobs, clusters, and other
+  Databricks resources as code, deployable via CLI
+- **Target** — a named deployment environment within a bundle (dev, staging, prod)
+- **Variable substitution** — `${var.name}` syntax that injects environment-specific values
+  at deploy time
+- **artifact_path** — where the bundle deploys files (notebooks, wheels) in the workspace
+- **bundle validate** — CLI command that checks YAML syntax and resource references without
+  deploying anything
+- **bundle deploy** — CLI command that pushes the bundle to the workspace for a given target
+- **bundle run** — CLI command that triggers a job or pipeline defined in the bundle
+
+---
+
+## Out of Scope for This Project
+
+- Refactoring or improving notebook logic
+- DLT (Delta Live Tables / Declarative Pipelines)
+- GitHub Actions or CI/CD automation
+- Terraform or alternative IaC approaches
+- Adding new data sources or pipeline stages
+- Azure Databricks port (future step after Bundle work is solid in Free Edition)

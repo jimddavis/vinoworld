@@ -1,0 +1,108 @@
+bundle:
+  name: vinoworld_bundle
+
+workspace:
+  host: https://dbc-d0f295f4-d028.cloud.databricks.com/
+  profile: "Vinoworld Bundle"
+
+resources:
+  jobs:
+    vinoworld_elt_pipeline:
+      name: Vinoworld_ELT_Pipeline
+      tasks:
+        # TODO: 001-Truncate_All_Tables.ipynb was not exported from Azure Databricks.
+        # Keeping source: WORKSPACE as a placeholder until the notebook is added locally.
+        - task_key: truncate_all_tables
+          notebook_task:
+            notebook_path: /Workspace/Users/zieder0022@gmail.com/Vinoworld/001-Truncate_All_Tables
+            source: WORKSPACE
+
+        - task_key: init_pipeline_log
+          depends_on:
+            - task_key: truncate_all_tables
+          spark_python_task:
+            python_file: ./src/init_pipeline_run_log.py
+          environment_key: Default
+
+        - task_key: move_datafiles_from_archive
+          depends_on:
+            - task_key: init_pipeline_log
+          notebook_task:
+            notebook_path: ./notebooks/000-MoveFilesFromArchiveToBronze.ipynb
+
+        - task_key: brz_load_arancione_sales_files
+          depends_on:
+            - task_key: move_datafiles_from_archive
+          notebook_task:
+            notebook_path: ./notebooks/bronze/brz_01_arancione_sales.ipynb
+          environment_key: Default
+
+        - task_key: brz_load_celeste_sales_files
+          depends_on:
+            - task_key: move_datafiles_from_archive
+          notebook_task:
+            notebook_path: ./notebooks/bronze/brz_02_celeste_sales.ipynb
+          environment_key: Default
+
+        - task_key: brz_load_verde_sales_files
+          depends_on:
+            - task_key: move_datafiles_from_archive
+          notebook_task:
+            notebook_path: ./notebooks/bronze/brz_03_verde_sales.ipynb
+          environment_key: Default
+
+        - task_key: brz_load_product_files
+          depends_on:
+            - task_key: move_datafiles_from_archive
+          notebook_task:
+            notebook_path: ./notebooks/bronze/brz_04_products.ipynb
+          environment_key: Default
+
+        - task_key: load_dim_product
+          depends_on:
+            - task_key: brz_load_product_files
+          notebook_task:
+            notebook_path: ./notebooks/silver/slvr_02_load_dim_product.ipynb
+
+        - task_key: load_dim_region
+          depends_on:
+            - task_key: brz_load_product_files
+          notebook_task:
+            notebook_path: ./notebooks/silver/slvr_03_load_dim_region.ipynb
+
+        - task_key: load_dims_from_csv
+          depends_on:
+            - task_key: move_datafiles_from_archive
+          notebook_task:
+            notebook_path: ./notebooks/silver/slvr_01_load_dim_fromcsv.ipynb
+
+        - task_key: load_silver_sales
+          depends_on:
+            - task_key: brz_load_arancione_sales_files
+            - task_key: brz_load_celeste_sales_files
+            - task_key: brz_load_verde_sales_files
+            - task_key: load_dim_product
+          notebook_task:
+            notebook_path: ./notebooks/silver/slvr_04_load_sales.ipynb
+
+        - task_key: load_gold_sales_fact
+          depends_on:
+            - task_key: load_silver_sales
+            - task_key: load_dim_region
+            - task_key: load_dims_from_csv
+            - task_key: load_dim_product
+          notebook_task:
+            notebook_path: ./notebooks/gold/gold_01_load_sales_fact.ipynb
+
+      queue:
+        enabled: true
+      environments:
+        - environment_key: Default
+          spec:
+            environment_version: "5"
+      performance_target: PERFORMANCE_OPTIMIZED
+
+targets:
+  dev:
+    mode: development
+    default: true

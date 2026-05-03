@@ -1,0 +1,92 @@
+resources:
+  jobs:
+    Vinoworld_ELT_Pipeline:
+      name: Vinoworld_ELT_Pipeline
+      tasks:
+        - task_key: truncate_all_tables
+          notebook_task:
+            notebook_path: /Workspace/Users/zieder0022@gmail.com/Vinoworld/001-Truncate_All_Tables
+            source: WORKSPACE
+        - task_key: init_pipeline_log
+          depends_on:
+            - task_key: truncate_all_tables
+          spark_python_task:
+            python_file: /Workspace/Users/zieder0022@gmail.com/Vinoworld/init_pipeline_run_log.py
+          environment_key: Default
+        - task_key: move_datafiles_from_archive
+          depends_on:
+            - task_key: init_pipeline_log
+          notebook_task:
+            notebook_path: /Workspace/Users/zieder0022@gmail.com/Vinoworld/000-MoveFilesFromArchiveToBronze
+            source: WORKSPACE
+        - task_key: brz_load_arancione_sales_files
+          depends_on:
+            - task_key: move_datafiles_from_archive
+          notebook_task:
+            notebook_path: /Workspace/Users/zieder0022@gmail.com/Vinoworld/bronze/brz_01_arancione_sales
+            source: WORKSPACE
+          environment_key: Default
+        - task_key: brz_load_celeste_sales_files
+          depends_on:
+            - task_key: move_datafiles_from_archive
+          notebook_task:
+            notebook_path: /Workspace/Users/zieder0022@gmail.com/Vinoworld/bronze/brz_02_celeste_sales
+            source: WORKSPACE
+          environment_key: Default
+        - task_key: brz_load_product_files
+          depends_on:
+            - task_key: move_datafiles_from_archive
+          notebook_task:
+            notebook_path: /Workspace/Users/zieder0022@gmail.com/Vinoworld/bronze/brz_04_products
+            source: WORKSPACE
+          environment_key: Default
+        - task_key: load_dim_product
+          depends_on:
+            - task_key: brz_load_product_files
+          notebook_task:
+            notebook_path: /Workspace/Users/zieder0022@gmail.com/Vinoworld/silver/slvr_02_load_dim_product
+            source: WORKSPACE
+        - task_key: load_dim_region
+          depends_on:
+            - task_key: brz_load_product_files
+          notebook_task:
+            notebook_path: /Workspace/Users/zieder0022@gmail.com/Vinoworld/silver/slvr_03_load_dim_region
+            source: WORKSPACE
+        - task_key: brz_load_verde_sales_files
+          depends_on:
+            - task_key: move_datafiles_from_archive
+          notebook_task:
+            notebook_path: /Workspace/Users/zieder0022@gmail.com/Vinoworld/bronze/brz_03_verde_sales
+            source: WORKSPACE
+          environment_key: Default
+        - task_key: load_silver_sales
+          depends_on:
+            - task_key: brz_load_arancione_sales_files
+            - task_key: brz_load_celeste_sales_files
+            - task_key: brz_load_verde_sales_files
+            - task_key: load_dim_product
+          notebook_task:
+            notebook_path: /Workspace/Users/zieder0022@gmail.com/Vinoworld/silver/slvr_04_load_sales
+            source: WORKSPACE
+        - task_key: load_dims_from_csv
+          depends_on:
+            - task_key: move_datafiles_from_archive
+          notebook_task:
+            notebook_path: /Workspace/Users/zieder0022@gmail.com/Vinoworld/silver/slvr_01_load_dim_fromcsv
+            source: WORKSPACE
+        - task_key: load_gold_sales_fact
+          depends_on:
+            - task_key: load_silver_sales
+            - task_key: load_dim_region
+            - task_key: load_dims_from_csv
+            - task_key: load_dim_product
+          notebook_task:
+            notebook_path: /Workspace/Users/zieder0022@gmail.com/Vinoworld/gold/gold_01_load_sales_fact
+            source: WORKSPACE
+      queue:
+        enabled: true
+      environments:
+        - environment_key: Default
+          spec:
+            environment_version: "5"
+      performance_target: PERFORMANCE_OPTIMIZED
