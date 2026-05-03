@@ -3,7 +3,7 @@ Databricks_CLI_Login_Method.txt
 /data
 
 __pycache__/
- *.pyc
- *.pyo
+*.pyc
+*.pyo
 .vscode/
 .databricks/
