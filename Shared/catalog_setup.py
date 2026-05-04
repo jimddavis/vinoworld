@@ -108,7 +108,7 @@ def create_audit_tables(spark, audit_schema):
     statements = [
         (f"{audit_schema}.pipeline_log", f"""
             CREATE TABLE IF NOT EXISTS {audit_schema}.pipeline_log (
-                pipeline_run_id      BIGINT      NOT NULL,
+                pipeline_run_id      STRING      NOT NULL,
                 pipeline_name        STRING      NOT NULL,
                 status               STRING      NOT NULL,
                 started_timestamp    TIMESTAMP   NOT NULL,
@@ -119,8 +119,8 @@ def create_audit_tables(spark, audit_schema):
         """),
         (f"{audit_schema}.pipeline_step_log", f"""
             CREATE TABLE IF NOT EXISTS {audit_schema}.pipeline_step_log (
-                step_log_id          BIGINT      NOT NULL,
-                pipeline_run_id      BIGINT      NOT NULL,
+                step_log_id          STRING      NOT NULL,
+                pipeline_run_id      STRING      NOT NULL,
                 step_sequence        INT         NOT NULL,
                 notebook_folder      STRING      NOT NULL,
                 notebook_name        STRING      NOT NULL,
@@ -137,9 +137,9 @@ def create_audit_tables(spark, audit_schema):
         """),
         (f"{audit_schema}.transform_detail_log", f"""
             CREATE TABLE IF NOT EXISTS {audit_schema}.transform_detail_log (
-                transform_id                BIGINT      GENERATED ALWAYS AS IDENTITY  NOT NULL,
-                pipeline_run_id             BIGINT      NOT NULL,
-                step_log_id                 BIGINT      NOT NULL,
+                transform_id                STRING      NOT NULL,
+                pipeline_run_id             STRING      NOT NULL,
+                step_log_id                 STRING      NOT NULL,
                 source_table                STRING      NOT NULL,
                 target_table                STRING      NOT NULL,
                 status                      STRING      NOT NULL,
@@ -161,9 +161,9 @@ def create_audit_tables(spark, audit_schema):
         """),
         (f"{audit_schema}.ingestion_log", f"""
             CREATE TABLE IF NOT EXISTS {audit_schema}.ingestion_log (
-                ingestion_id         BIGINT      GENERATED ALWAYS AS IDENTITY  NOT NULL,
-                pipeline_run_id      BIGINT      NOT NULL,
-                step_log_id          BIGINT      NOT NULL,
+                ingestion_id         STRING      NOT NULL,
+                pipeline_run_id      STRING      NOT NULL,
+                step_log_id          STRING      NOT NULL,
                 source_system        STRING      NOT NULL,
                 source_file_path     STRING      NOT NULL,
                 target_table         STRING      NOT NULL,
@@ -360,7 +360,7 @@ def create_silver_tables(spark, silver_schema):
 				quantity            INT,
 				row_hash            STRING,
 				source_inserted_ts  TIMESTAMP,
-				run_id              BIGINT,
+				run_id              STRING,
 				inserted_ts         TIMESTAMP,
 				updated_ts          TIMESTAMP
 			)
@@ -431,7 +431,7 @@ def create_gold_tables(spark, gold_schema, silver_schema):
                     CurrencyName
                 FROM {silver_schema}.dim_currency
         """),
-		
+
         (f"{gold_schema}.dim_date", f"""
                     CREATE OR REPLACE VIEW {gold_schema}.dim_date AS
                         SELECT
@@ -444,7 +444,7 @@ def create_gold_tables(spark, gold_schema, silver_schema):
                             Season
                         FROM {silver_schema}.dim_date
                 """),
-		
+
         (f"{gold_schema}.dim_exchange_rate", f"""
                 CREATE OR REPLACE VIEW {gold_schema}.dim_exchange_rate AS
                     SELECT
@@ -455,8 +455,8 @@ def create_gold_tables(spark, gold_schema, silver_schema):
                         ExchangeRate
                     FROM {silver_schema}.dim_exchange_rate
             """),
-            
-            
+
+
         (f"{gold_schema}.dim_region", f"""
                 CREATE OR REPLACE VIEW {gold_schema}.dim_region AS
                     SELECT
@@ -468,8 +468,8 @@ def create_gold_tables(spark, gold_schema, silver_schema):
                         Longitude
                     FROM {silver_schema}.dim_region
             """),
-            
-            
+
+
         (f"{gold_schema}.dim_store", f"""
                 CREATE OR REPLACE VIEW {gold_schema}.dim_store AS
                     SELECT
@@ -479,7 +479,7 @@ def create_gold_tables(spark, gold_schema, silver_schema):
                         Description
                     FROM {silver_schema}.dim_store
             """),
-            
+
         (f"{gold_schema}.dim_territory", f"""
                 CREATE OR REPLACE VIEW {gold_schema}.dim_territory AS
                     SELECT

@@ -9,6 +9,7 @@
 # ---------------------------------------------------------------------------
 
 from datetime import datetime, timezone
+from pyspark.sql import functions as F
 from pyspark.sql.types import (
     Row, StructType, StructField,
     StringType, IntegerType, LongType, TimestampType, DoubleType, BooleanType
@@ -17,7 +18,7 @@ from pyspark.sql.types import (
 PIPELINE_LOG_TABLE = "vinoworld.audit.pipeline_log"
 
 _AUDIT_SCHEMA = StructType([
-    StructField("pipeline_run_id",    LongType(),      False),
+    StructField("pipeline_run_id",    StringType(),    False),
     StructField("pipeline_name",      StringType(),    False),
     StructField("status",             StringType(),    False),
     StructField("started_timestamp",  TimestampType(), False),
@@ -29,7 +30,7 @@ _AUDIT_SCHEMA = StructType([
 
 def pipeline_log_upsert(
     spark,
-    pipeline_run_id:    int,
+    pipeline_run_id:    str,
     pipeline_name:      str,
     status:             str,
     started_timestamp:  datetime,
@@ -41,7 +42,7 @@ def pipeline_log_upsert(
 
     Args:
         spark:             Active SparkSession.
-        pipeline_run_id:   Microsecond timestamp PK (int(time.time() * 1_000_000)).
+        pipeline_run_id:   UUID string PK.
         pipeline_name:     Logical name of the pipeline, e.g. 'nightly_sales_etl'.
         status:            'running' | 'succeeded' | 'failed'
         started_timestamp: datetime when the run started.
@@ -84,8 +85,8 @@ def pipeline_log_upsert(
 _STEP_LOG_TABLE = "vinoworld.audit.pipeline_step_log"
 
 _STEP_LOG_SCHEMA = StructType([
-    StructField("step_log_id",        LongType(),      False),
-    StructField("pipeline_run_id",    LongType(),      False),
+    StructField("step_log_id",        StringType(),    False),
+    StructField("pipeline_run_id",    StringType(),    False),
     StructField("step_sequence",      IntegerType(),   False),
     StructField("notebook_folder",    StringType(),    False),
     StructField("notebook_name",      StringType(),    False),
@@ -103,8 +104,8 @@ _STEP_LOG_SCHEMA = StructType([
 
 def pipeline_step_log_upsert(
     spark,
-    step_log_id:        int,
-    pipeline_run_id:    int,
+    step_log_id:        str,
+    pipeline_run_id:    str,
     step_sequence:      int,
     notebook_folder:    str,
     notebook_name:      str,
@@ -122,7 +123,7 @@ def pipeline_step_log_upsert(
 
     Args:
         spark:             Active SparkSession.
-        step_log_id:       Microsecond timestamp PK for this step row.
+        step_log_id:       UUID string PK for this step row.
         pipeline_run_id:   FK to pipeline_log.
         step_sequence:     Ordinal position of this step (1, 2, 3...).
         notebook_folder:   Folder portion of the notebook path.
@@ -182,8 +183,8 @@ def pipeline_step_log_upsert(
 _TRANSFORM_DETAIL_TABLE = "vinoworld.audit.transform_detail_log"
 
 _TRANSFORM_DETAIL_SCHEMA = StructType([
-    StructField("pipeline_run_id",            LongType(),      False),
-    StructField("step_log_id",                LongType(),      False),
+    StructField("pipeline_run_id",            StringType(),    False),
+    StructField("step_log_id",                StringType(),    False),
     StructField("source_table",               StringType(),    False),
     StructField("target_table",               StringType(),    False),
     StructField("status",                     StringType(),    False),
@@ -206,8 +207,8 @@ _TRANSFORM_DETAIL_SCHEMA = StructType([
 
 def transform_detail_log_insert(
     spark,
-    pipeline_run_id:            int,
-    step_log_id:                int,
+    pipeline_run_id:            str,
+    step_log_id:                str,
     source_table:               str,
     target_table:               str,
     status:                     str,
@@ -329,8 +330,8 @@ _INGESTION_LOG_TABLE = "vinoworld.audit.ingestion_log"
 def ingestion_log_insert(
     spark,
     df_files:           "DataFrame",
-    pipeline_run_id:    int,
-    step_log_id:        int,
+    pipeline_run_id:    str,
+    step_log_id:        str,
     source_system:      str,
     target_table:       str,
     error_message:      str      = None,
@@ -354,13 +355,14 @@ def ingestion_log_insert(
         error_message:      Error message if ingestion failed (None otherwise).
         ingested_timestamp: Defaults to datetime.now(timezone.utc) if not supplied.
     """
-    from pyspark.sql import functions as F
+
 
     if ingested_timestamp is None:
         ingested_timestamp = datetime.now(timezone.utc)
 
     df_log = (
         df_files.select("source_file_path")
+        .withColumn("ingestion_id",       F.expr("uuid()"))
         .withColumn("pipeline_run_id",    F.lit(pipeline_run_id))
         .withColumn("step_log_id",        F.lit(step_log_id))
         .withColumn("source_system",      F.lit(source_system))
@@ -374,10 +376,10 @@ def ingestion_log_insert(
 
     spark.sql(f"""
         INSERT INTO {_INGESTION_LOG_TABLE}
-            (pipeline_run_id, step_log_id, source_system, source_file_path,
+            (ingestion_id, pipeline_run_id, step_log_id, source_system, source_file_path,
              target_table, error_message, ingested_timestamp)
         SELECT
-             pipeline_run_id, step_log_id, source_system, source_file_path,
+             ingestion_id, pipeline_run_id, step_log_id, source_system, source_file_path,
              target_table, error_message, ingested_timestamp
         FROM _ingestion_log_staging
     """)

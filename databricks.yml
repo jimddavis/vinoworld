@@ -5,10 +5,27 @@ workspace:
   host: https://dbc-d0f295f4-d028.cloud.databricks.com/
   profile: "Vinoworld Bundle"
 
+# ---------------------------------------------------------------------------
+# Variables — resolved at deploy time; override per target below.
+# ${workspace.root_path} expands to where this bundle deployed its files,
+# e.g. /Workspace/Users/<email>/.bundle/vinoworld_bundle/dev
+# Each target therefore gets its own isolated copy of Shared/.
+# ---------------------------------------------------------------------------
+variables:
+  shared_lib_path:
+    description: Workspace path to the shared Python utility modules (pipeline_logging, pipeline_utils)
+    default: ${workspace.root_path}/files/Shared
+
 resources:
   jobs:
     vinoworld_elt_pipeline:
       name: Vinoworld_ELT_Pipeline
+      # Job parameters flow to all notebook tasks automatically as widget values.
+      # Python script tasks cannot read job parameters the same way — pass explicitly
+      # via spark_python_task.parameters (see init_pipeline_log task below).
+      parameters:
+        - name: shared_lib_path
+          default: ${var.shared_lib_path}
       tasks:
         # TODO: 001-Truncate_All_Tables.ipynb was not exported from Azure Databricks.
         # Keeping source: WORKSPACE as a placeholder until the notebook is added locally.
@@ -22,6 +39,8 @@ resources:
             - task_key: truncate_all_tables
           spark_python_task:
             python_file: ./src/init_pipeline_run_log.py
+            parameters:
+              - "${var.shared_lib_path}"
           environment_key: Default
 
         - task_key: move_datafiles_from_archive
@@ -106,3 +125,13 @@ targets:
   dev:
     mode: development
     default: true
+    # shared_lib_path inherits the default: ${workspace.root_path}/files/Shared
+    # which resolves to .../vinoworld_bundle/dev/files/Shared
+
+  staging:
+    mode: development
+    # resolves to .../vinoworld_bundle/staging/files/Shared
+
+  prod:
+    mode: production
+    # resolves to .../vinoworld_bundle/prod/files/Shared
