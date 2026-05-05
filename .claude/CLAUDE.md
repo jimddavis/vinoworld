@@ -180,6 +180,51 @@ Work through these phases in order. Complete and validate each phase before movi
 - **WSL paths apply.** All CLI commands run in WSL2/Ubuntu. File paths use Linux conventions.
   The project root is in the WSL filesystem (not `/mnt/c/...`).
 
+- **Only upload files required by Databricks at runtime.** The bundle sync should contain
+  only notebooks, Python scripts, and YAML that the pipeline actually executes. Documentation,
+  learning notes, CLI reference files, local scratch files, and project tooling (`.claude/`,
+  `docs/`, `learning/`, `jobs/`, `git/`, `val.json`, `.gitignore`) must be excluded via
+  `sync.exclude` in `databricks.yml`. Use `.gitignore` for files that should be excluded
+  from both git and the workspace. Use `sync.exclude` for files that belong in git but
+  not in the workspace. Validate the exclusion list is current whenever new non-runtime
+  folders are added to the project.
+
+- **Force a clean sync when files are missing.** The CLI maintains a local sync snapshot in
+  `.databricks/bundle/<target>/sync-snapshots/` to avoid re-uploading unchanged files.
+  After a laptop restart or any time files are deleted/moved in the Databricks UI, this
+  snapshot gets out of sync and the CLI silently skips re-uploading files it thinks are
+  already there. Delete the snapshot directory to force the CLI to re-evaluate from scratch:
+  ```
+  rm -rf .databricks/bundle/dev/sync-snapshots/
+  databricks bundle deploy --target dev
+  ```
+
+---
+
+## Troubleshooting
+
+### Files missing after bundle deploy (ghost sync)
+
+**Symptom:** After restarting or switching environments, notebooks or Python files that exist
+locally do not appear in the Databricks workspace after `databricks bundle deploy`.
+
+**Cause:** The CLI keeps a local sync snapshot (`.databricks/bundle/<target>/sync-snapshots/`)
+tracking what it has already uploaded. If the remote workspace state changed (files deleted via
+UI, laptop restarted, etc.) without a corresponding local change, the CLI considers those files
+already in sync and skips uploading them.
+
+**Fix (fastest):** Delete the snapshot so the CLI does a full comparison on the next deploy:
+```bash
+rm -rf .databricks/bundle/dev/sync-snapshots/
+databricks bundle deploy --target dev
+```
+
+**Prevention:** Delete the sync snapshot before deploying to force a complete upload:
+```bash
+rm -rf .databricks/bundle/dev/sync-snapshots/
+databricks bundle deploy --target dev
+```
+
 ---
 
 ## Key Concepts to Introduce (with brief definition each time they appear)

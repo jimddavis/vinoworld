@@ -22,4 +22,24 @@
   fails if more than one profile matches — which is exactly what happened.
 
 
+    databricks bundle deploy --target dev
+                             --target staging
+                             --target prod
 
+
+
+
+
+databricks bundle deploy --log-level debug
+
+
+##  If files are not uploading on bundle deploy, its a Databricks CLI caching issue.  Run the following to delete the cache, and the files should upload.
+
+rm -rf .databricks/bundle/dev/sync-snapshots/
+
+
+
+ databricks bundle validate --output json | python3 -m json.tool | grep -A2 "notebook_path"
+
+  This prints the validate output as JSON and extracts every notebook_path entry. You should see absolute workspace paths (not ./ relative paths) — that confirms Bundle is
+  resolving them correctly.

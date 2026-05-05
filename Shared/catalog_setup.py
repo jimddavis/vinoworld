@@ -46,9 +46,10 @@ def _run_ddl(spark, statements):
 # Group A: Catalog and Schemas
 # ---------------------------------------------------------------------------
 
-def create_catalog(spark, catalog):
+def create_catalog(spark, catalog, managed_location=None):
     try:
-        spark.sql(f"CREATE CATALOG IF NOT EXISTS {catalog}")
+        location_clause = f"\n    MANAGED LOCATION '{managed_location}'" if managed_location else ""
+        spark.sql(f"CREATE CATALOG IF NOT EXISTS {catalog}{location_clause}")
         return _ok(f"Catalog '{catalog}' is ready.", [catalog])
     except Exception as e:
         return _fail(f"Failed to create catalog '{catalog}'.", e)
@@ -189,7 +190,7 @@ def create_bronze_tables(spark, bronze_schema):
                 quantity            STRING,
                 row_hash            STRING      NOT NULL,
                 inserted_ts         TIMESTAMP,
-                run_id              BIGINT,
+                run_id              STRING,
                 source_file_path    STRING,
                 store_name          STRING
             )
@@ -210,7 +211,7 @@ def create_bronze_tables(spark, bronze_schema):
                 quantity            STRING,
                 row_hash            STRING      NOT NULL,
                 inserted_ts         TIMESTAMP,
-                run_id              BIGINT,
+                run_id              STRING,
                 source_file_path    STRING,
                 store_name          STRING
             )
@@ -227,7 +228,7 @@ def create_bronze_tables(spark, bronze_schema):
                 sales_qty           STRING,
                 row_hash            STRING      NOT NULL,
                 inserted_ts         TIMESTAMP,
-                run_id              BIGINT,
+                run_id              STRING,
                 source_file_path    STRING
             )
         """),
@@ -250,7 +251,7 @@ def create_bronze_tables(spark, bronze_schema):
                 year                STRING,
                 row_hash            STRING      NOT NULL,
                 inserted_ts         TIMESTAMP,
-                run_id              BIGINT,
+                run_id              STRING,
                 source_file_path    STRING
             )
         """),
