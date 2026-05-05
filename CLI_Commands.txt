@@ -36,6 +36,7 @@ databricks bundle deploy --log-level debug
 ##  If files are not uploading on bundle deploy, its a Databricks CLI caching issue.  Run the following to delete the cache, and the files should upload.
 
 rm -rf .databricks/bundle/dev/sync-snapshots/
+rm -rf .databricks/bundle/azure_prod/sync-snapshots/
 
 
 
