@@ -8,3 +8,6 @@ __pycache__/
 .vscode/
 .databricks/
 .bundle
+
+install-databricks-skills.sh
+
