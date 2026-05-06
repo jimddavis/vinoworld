@@ -89,6 +89,7 @@ resources:
             python_file: ./libs/init_pipeline_run_log.py
             parameters:
               - "${var.shared_lib_path}"
+              - "${var.catalog}"
           environment_key: Default
 
         - task_key: move_datafiles_from_archive

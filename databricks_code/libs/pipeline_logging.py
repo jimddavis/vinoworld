@@ -15,7 +15,27 @@ from pyspark.sql.types import (
     StringType, IntegerType, LongType, TimestampType, DoubleType, BooleanType
 )
 
-PIPELINE_LOG_TABLE = "vinoworld.audit.pipeline_log"
+# ---------------------------------------------------------------------------
+# Audit schema is set at runtime by notebook_init via configure().
+# All audit table names derive from this prefix so the module honors the
+# bundle target's catalog (dev_vinoworld / staging_vinoworld / vinoworld).
+# ---------------------------------------------------------------------------
+
+_AUDIT_SCHEMA_NAME = None
+
+
+def configure(audit_schema):
+    global _AUDIT_SCHEMA_NAME
+    _AUDIT_SCHEMA_NAME = audit_schema
+
+
+def _audit(table):
+    if _AUDIT_SCHEMA_NAME is None:
+        raise RuntimeError(
+            "pipeline_logging.configure(audit_schema) must be called "
+            "before any logging function (typically from notebook_init)."
+        )
+    return f"{_AUDIT_SCHEMA_NAME}.{table}"
 
 _AUDIT_SCHEMA = StructType([
     StructField("pipeline_run_id",    StringType(),    False),
@@ -69,7 +89,7 @@ def pipeline_log_upsert(
 
     from delta.tables import DeltaTable
 
-    DeltaTable.forName(spark, PIPELINE_LOG_TABLE) \
+    DeltaTable.forName(spark, _audit("pipeline_log")) \
         .alias("target") \
         .merge(df_log_row.alias("source"),
                "target.pipeline_run_id = source.pipeline_run_id") \
@@ -81,8 +101,6 @@ def pipeline_log_upsert(
 # ----------------------------------------------------------
 # Setup Schema for the pipeline_step_log table
 # ----------------------------------------------------------
-
-_STEP_LOG_TABLE = "vinoworld.audit.pipeline_step_log"
 
 _STEP_LOG_SCHEMA = StructType([
     StructField("step_log_id",        StringType(),    False),
@@ -164,7 +182,7 @@ def pipeline_step_log_upsert(
 
     from delta.tables import DeltaTable
 
-    DeltaTable.forName(spark, _STEP_LOG_TABLE) \
+    DeltaTable.forName(spark, _audit("pipeline_step_log")) \
         .alias("target") \
         .merge(df_log_row.alias("source"),
                "target.step_log_id = source.step_log_id") \
@@ -179,8 +197,6 @@ def pipeline_step_log_upsert(
 # ----------------------------------------------------------
 # Setup Schema for the transform_detail_log table
 # ----------------------------------------------------------
-
-_TRANSFORM_DETAIL_TABLE = "vinoworld.audit.transform_detail_log"
 
 _TRANSFORM_DETAIL_SCHEMA = StructType([
     StructField("pipeline_run_id",            StringType(),    False),
@@ -314,7 +330,7 @@ def transform_detail_log_insert(
     df_log_row.write \
         .format("delta") \
         .mode("append") \
-        .saveAsTable(_TRANSFORM_DETAIL_TABLE)
+        .saveAsTable(_audit("transform_detail_log"))
 
 
 
@@ -324,8 +340,6 @@ def transform_detail_log_insert(
 # ------------------------------------------------
 # ingestion_log Using spark.sql and a SQL Insert statement
 # ------------------------------------------------
-
-_INGESTION_LOG_TABLE = "vinoworld.audit.ingestion_log"
 
 def ingestion_log_insert(
     spark,
@@ -375,7 +389,7 @@ def ingestion_log_insert(
     df_log.createOrReplaceTempView("_ingestion_log_staging")
 
     spark.sql(f"""
-        INSERT INTO {_INGESTION_LOG_TABLE}
+        INSERT INTO {_audit("ingestion_log")}
             (ingestion_id, pipeline_run_id, step_log_id, source_system, source_file_path,
              target_table, error_message, ingested_timestamp)
         SELECT
