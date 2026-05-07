@@ -37,6 +37,8 @@ databricks bundle deploy --log-level debug
 
 rm -rf .databricks/bundle/dev/sync-snapshots/
 rm -rf .databricks/bundle/azure_prod/sync-snapshots/
+rm -rf .databricks/bundle/staging/sync-snapshots/
+rm -rf .databricks/bundle/prod/sync-snapshots/
 
 
 
