@@ -17,6 +17,16 @@ jobs:
       - name: Install Databricks CLI
         uses: databricks/setup-cli@main
 
+      - name: Debug auth env (temporary)
+        env:
+          DATABRICKS_HOST:  ${{ secrets.DATABRICKS_HOST }}
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+        run: |
+          echo "HOST is set: ${DATABRICKS_HOST:+YES}"
+          echo "HOST length: ${#DATABRICKS_HOST}"
+          echo "TOKEN is set: ${DATABRICKS_TOKEN:+YES}"
+          echo "TOKEN length: ${#DATABRICKS_TOKEN}"
+
       - name: Validate bundle (dev target)
         env:
           DATABRICKS_HOST:  ${{ secrets.DATABRICKS_HOST }}

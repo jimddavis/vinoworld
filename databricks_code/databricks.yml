@@ -1,9 +1,8 @@
 bundle:
-  name: vinoworld_bundle
+  name: vinoworld
 
 workspace:
   host: https://dbc-d0f295f4-d028.cloud.databricks.com/
-  profile: "Free"
   # Explicit root_path ensures each target deploys to its own isolated path.
   # ${bundle.target} resolves to dev / staging / prod at deploy time.
   # Required for mode: production; also prevents dev and staging from colliding.
