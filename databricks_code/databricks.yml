@@ -49,11 +49,6 @@ resources:
           notebook_task:
             notebook_path: ./setup/catalog_ddl.ipynb
 
-        - task_key: seed_volumes
-          depends_on:
-            - task_key: provision_catalog
-          notebook_task:
-            notebook_path: ./setup/seed_volumes.ipynb
 
       queue:
         enabled: true
@@ -78,13 +73,7 @@ resources:
         - name: shared_lib_path
           default: ${var.shared_lib_path}
       tasks:
-        - task_key: truncate_all_tables
-          notebook_task:
-            notebook_path: ./notebooks/001-Truncate_All_Tables.ipynb
-
         - task_key: init_pipeline_log
-          depends_on:
-            - task_key: truncate_all_tables
           spark_python_task:
             python_file: ./libs/init_pipeline_run_log.py
             parameters:
@@ -92,36 +81,30 @@ resources:
               - "${var.catalog}"
           environment_key: Default
 
-        - task_key: move_datafiles_from_archive
-          depends_on:
-            - task_key: init_pipeline_log
-          notebook_task:
-            notebook_path: ./notebooks/000-MoveFilesFromArchiveToBronze.ipynb
-
         - task_key: brz_load_arancione_sales_files
           depends_on:
-            - task_key: move_datafiles_from_archive
+            - task_key: init_pipeline_log
           notebook_task:
             notebook_path: ./notebooks/bronze/brz_01_arancione_sales.ipynb
           environment_key: Default
 
         - task_key: brz_load_celeste_sales_files
           depends_on:
-            - task_key: move_datafiles_from_archive
+            - task_key: init_pipeline_log
           notebook_task:
             notebook_path: ./notebooks/bronze/brz_02_celeste_sales.ipynb
           environment_key: Default
 
         - task_key: brz_load_verde_sales_files
           depends_on:
-            - task_key: move_datafiles_from_archive
+            - task_key: init_pipeline_log
           notebook_task:
             notebook_path: ./notebooks/bronze/brz_03_verde_sales.ipynb
           environment_key: Default
 
         - task_key: brz_load_product_files
           depends_on:
-            - task_key: move_datafiles_from_archive
+            - task_key: init_pipeline_log
           notebook_task:
             notebook_path: ./notebooks/bronze/brz_04_products.ipynb
           environment_key: Default
@@ -140,7 +123,7 @@ resources:
 
         - task_key: load_dims_from_csv
           depends_on:
-            - task_key: move_datafiles_from_archive
+            - task_key: init_pipeline_log
           notebook_task:
             notebook_path: ./notebooks/silver/slvr_01_load_dim_fromcsv.ipynb
 
