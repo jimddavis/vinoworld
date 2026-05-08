@@ -11,3 +11,7 @@ __pycache__/
 
 install-databricks-skills.sh
 
+# Local env files (NEVER commit secrets)
+.env
+.env.local
+
