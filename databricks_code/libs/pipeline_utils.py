@@ -149,9 +149,8 @@ def move_all_files(
 #  Detailed description is in doc comments.  Quite long, but well documented
 # ---------------------------------------------------------------------------
 
-def load_dim_from_csv(spark, source_path, target_table, merge_sql_fn, 
-                    add_timestamps=True, df_transform=None, 
-                    step_log_id=None, ):
+def load_dim_from_csv(spark, source_path, target_table, merge_sql_fn,
+                    add_timestamps=True, df_transform=None):
     """
     Load a single dimension table from a CSV file into a Silver Delta table.
 
@@ -194,18 +193,16 @@ def load_dim_from_csv(spark, source_path, target_table, merge_sql_fn,
                         )
                         # Complex transforms - use a named function instead of lambda
                         df_transform = transform_exchange_rates
-    step_log_id   : int/str - FK to pipeline_step_log. Passed through to the audit
-                    logging calls so each dimension load gets its own log row.
-
-
-    return {
-            "target_table"  : target_table,
-            "status"        : "succeeded",
-            "rows_written"  : rows_written,
-            "error_message" : None,
-            "started"       : started,
-            "ended"         : datetime.now(timezone.utc)
-        }
+    Returns
+    -------
+    dict
+        Keys match transform_detail_log_insert's parameter names exactly,
+        so the caller can pass it directly via **result:
+            source_table, target_table, status,
+            rows_read, rows_written, rows_inserted, rows_updated,
+            error_message, started_timestamp, ended_timestamp
+        The helper does NOT write to audit. The caller is responsible
+        for invoking transform_detail_log_insert(spark, **result, ...).
 
     Execution Order
     ---------------
@@ -214,7 +211,8 @@ def load_dim_from_csv(spark, source_path, target_table, merge_sql_fn,
     3. Apply df_transform hook (if provided)
     4. Register as temp view 'temp_dim'
     5. Execute merge_sql_fn SQL against target_table
-    6. Log success/failure to pipeline_step_log
+    6. Read DESCRIBE HISTORY for rows_inserted / rows_updated
+    7. Return audit-ready dict (caller logs to transform_detail_log)
 
     Notes
     -----
@@ -222,8 +220,9 @@ def load_dim_from_csv(spark, source_path, target_table, merge_sql_fn,
       because each call completes before the next begins (sequential, not parallel).
     """
 
-    started = datetime.now(timezone.utc)
-	
+    started        = datetime.now(timezone.utc)
+    file_row_count = None  # tracked so the failure path can still report rows_read
+
     try:
         pre_write_count = spark.table(target_table).count()
         df = spark.read.format("csv").option("header", "true").load(source_path)
@@ -240,31 +239,42 @@ def load_dim_from_csv(spark, source_path, target_table, merge_sql_fn,
         df.createOrReplaceTempView("temp_dim")
         spark.sql(merge_sql_fn(target_table))
 
+        # operationMetrics is populated for a plain MERGE. It would be empty
+        # for BEGIN ATOMIC blocks — not used here, so this is safe.
+        metrics       = spark.sql(f"DESCRIBE HISTORY {target_table} LIMIT 1") \
+                               .select("operationMetrics").collect()[0][0]
+        rows_inserted = int(metrics.get("numTargetRowsInserted") or 0)
+        rows_updated  = int(metrics.get("numTargetRowsUpdated") or 0)
+
         post_write_count = spark.table(target_table).count()
         rows_written     = post_write_count - pre_write_count
 
-
         return {
-            "source_path"   : source_path,
-            "file_row_count": file_row_count,
-            "rows_written"  : rows_written,
-            "target_table"  : target_table,
-            "status"        : "succeeded",
-            "rows_written"  : rows_written,
-            "error_message" : None,
-            "started"       : started,
-            "ended"         : datetime.now(timezone.utc)
+            "source_table"      : source_path,
+            "target_table"      : target_table,
+            "status"            : "succeeded",
+            "rows_read"         : file_row_count,
+            "rows_written"      : rows_written,
+            "rows_inserted"     : rows_inserted,
+            "rows_updated"      : rows_updated,
+            "error_message"     : None,
+            "started_timestamp" : started,
+            "ended_timestamp"   : datetime.now(timezone.utc),
         }
 
     except Exception as e:
         err = capture_exception(e)
         return {
-            "target_table"  : target_table,
-            "status"        : "failed",
-            "rows_written"  : 0,
-            "error_message" : f"{err['error_type']}: {err['error_message']}",
-            "started"       : started,
-            "ended"         : datetime.now(timezone.utc)
+            "source_table"      : source_path,
+            "target_table"      : target_table,
+            "status"            : "failed",
+            "rows_read"         : file_row_count,
+            "rows_written"      : 0,
+            "rows_inserted"     : None,
+            "rows_updated"      : None,
+            "error_message"     : f"{err['error_type']}: {err['error_message']}",
+            "started_timestamp" : started,
+            "ended_timestamp"   : datetime.now(timezone.utc),
         }
 # ---------------------------------------------------------------------------
 #  END of load_dim_from_csv
