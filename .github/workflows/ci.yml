@@ -1,0 +1,38 @@
+name: Validate and Deploy
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  validate:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: databricks_code
+    steps:
+      - uses: actions/checkout@v4
+      - uses: databricks/setup-cli@main
+      - name: Validate bundle (dev target)
+        env:
+          DATABRICKS_HOST:  ${{ secrets.DATABRICKS_HOST }}
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+        run: databricks bundle validate --target dev
+
+  deploy-dev:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: databricks_code
+    steps:
+      - uses: actions/checkout@v4
+      - uses: databricks/setup-cli@main
+      - name: Deploy to dev
+        env:
+          DATABRICKS_HOST:  ${{ secrets.DATABRICKS_HOST }}
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+        run: databricks bundle deploy --target dev
