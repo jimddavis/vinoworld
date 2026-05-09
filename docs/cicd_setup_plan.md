@@ -531,6 +531,42 @@ git branch -d ci/add-validate-workflow
 - [ ] Open a new test PR with any trivial change (e.g., a comment in a notebook). The validate check runs automatically and passes.
 - [ ] Close the test PR without merging.
 
+### Reference — Anatomy of a CI run
+
+Once the workflow is green, it's worth understanding *exactly* what happened end-to-end. This is the mental model to carry into Phases 3–5.
+
+**1. Trigger.** The workflow file declares:
+```yaml
+on:
+  pull_request:
+    branches: [main]
+```
+When you opened the PR targeting `main`, GitHub fired a `pull_request` event. GitHub's workflow engine scanned `.github/workflows/` in the PR's branch, found `validate.yml`, and matched the trigger.
+
+**2. Runner provisioning.** `runs-on: ubuntu-latest` told GitHub to spin up a **fresh ephemeral VM** — a clean Ubuntu container with nothing project-specific on it. No code, no CLIs, no secrets, no `~/.databrickscfg`. This VM exists only for this one workflow run and is destroyed when it finishes. That's why local config files on your laptop are irrelevant — the runner has never seen them.
+
+**3. Step 1 — `actions/checkout@v4`.** A pre-built GitHub Action (a reusable script) that runs `git clone` of *your PR branch* into the runner's working directory. After this step, the runner has a copy of your repo at the PR's commit SHA.
+
+**4. Step 2 — `databricks/setup-cli@main`.** Another pre-built action, this one published by Databricks. It downloads the Databricks CLI binary, installs it on the runner's PATH, and prints the version. After this step, `databricks` is a runnable command on the runner.
+
+**5. Step 3 — `databricks bundle validate --target dev`.** With CLI installed and auth env vars set from secrets, the CLI:
+   - Read `databricks_code/databricks.yml` (working directory was set to `databricks_code` via `defaults.run.working-directory`).
+   - Resolved variable substitutions for the `dev` target (e.g., `${var.catalog}` → `dev_vinoworld`).
+   - Authenticated to the Free Edition workspace using the env-var token.
+   - Made API calls to verify the workspace is reachable, the user exists, and the resource definitions are syntactically and semantically valid.
+   - Printed `Validation OK!`
+
+**6. Cleanup.** The runner VM is destroyed. Logs are retained on GitHub for 90 days (default). The PR's "Checks" tab shows green because the workflow exited 0.
+
+**Things to internalize:**
+
+- **Runners are stateless and ephemeral.** Every run starts from zero. Anything you need has to either be checked into the repo, fetched by an action, or injected as a secret.
+- **Secrets are environment variables, not files.** GitHub only exposes them to steps that explicitly opt in via `env:` or `with:`. They're masked in logs (that's why `Host:` shows as `***`).
+- **The CLI on the runner is the same binary you'd run locally.** It just sees a different auth source (env vars instead of `~/.databrickscfg`) and a fresh checkout instead of your laptop's working tree.
+- **`bundle validate` is not just YAML syntax checking.** It calls the Databricks API to verify the workspace exists and the auth works. That's why missing/wrong credentials surface here, not at file-parse time.
+
+This same flow powers `bundle deploy` in Phases 3–5 — same runner, same auth pattern, just a different CLI command and (eventually) a GitHub Environment + branch/tag protection rules around it.
+
 ---
 
 ## Phase 3 — Auto-deploy to dev on merge to main
