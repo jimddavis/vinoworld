@@ -1,9 +1,5 @@
 name: Validate and Deploy
 
-permissions:
-    - user_name: zieder0022@gmail.com
-      level: CAN_MANAGE
-
 on:
   pull_request:
     branches: [main]

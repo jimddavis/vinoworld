@@ -8,6 +8,13 @@ workspace:
   # Required for mode: production; also prevents dev and staging from colliding.
   root_path: /Workspace/Users/zieder0022@gmail.com/.bundle/${bundle.name}/${bundle.target}
 
+# Bundle ACL — every deploy reasserts these permissions on the workspace path.
+# Prevents collisions when the same user deploys from multiple sessions
+# (laptop CLI vs. CI PAT) or when a teammate is added later.
+permissions:
+  - user_name: zieder0022@gmail.com
+    level: CAN_MANAGE
+
 # ---------------------------------------------------------------------------
 # Variables — resolved at deploy time; override per target below.
 # shared_lib_path points to the libs/ folder deployed by the bundle.
