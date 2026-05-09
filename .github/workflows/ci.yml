@@ -1,5 +1,17 @@
 name: Validate and Deploy
 
+bundle:
+    name: vinoworld
+
+workspace:
+    host: https://dbc-d0f295f4-d028.cloud.databricks.com/
+    root_path: /Workspace/Users/zieder0022@gmail.com/.bundle/${bundle.name}/${bundle.target}
+
+  # Add this block:
+permissions:
+    - user_name: zieder0022@gmail.com
+      level: CAN_MANAGE
+
 on:
   pull_request:
     branches: [main]
