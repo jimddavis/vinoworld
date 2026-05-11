@@ -1,5 +1,27 @@
 # Vinoworld Databricks Bundle Project
 
+## Learning Mode
+
+This project is Jim's primary Databricks learning environment. Lean toward MORE
+explicitness, not less:
+
+- **State confidence levels on platform-specific claims** (verified / projected /
+  guessing). Don't state Databricks-specific behavior with the same confidence as
+  general Python or SQL.
+- **Offer to verify** via WebFetch (Databricks docs) or a cheap probe before
+  committing to a non-trivial platform behavior. The cost of a doc lookup is
+  seconds; the cost of a failed deploy + diagnosis is tens of minutes.
+- **Repeat reminders** even if stated earlier in the session — Jim is absorbing
+  many new concepts and can't be expected to retain every one.
+- **When a gotcha is hit, persist it** — add to the anti-patterns table in
+  `databricks/.claude/CLAUDE.md`, or a memory feedback file, or this CLAUDE.md.
+  Don't just resolve in the moment.
+
+Token usage is a secondary concern while learning. Optimize for retention and
+verification, not brevity.
+
+---
+
 ## Project Purpose
 
 This is a **learning project** for converting an existing Databricks notebook pipeline into a
@@ -161,6 +183,22 @@ Work through these phases in order. Complete and validate each phase before movi
 ---
 
 ## Working Conventions
+
+- **Propose code changes before applying them.** For any change under
+  `databricks_code/` (notebooks, `.py` scripts, `databricks.yml`, `libs/`,
+  `setup/`), describe the planned change first and ask before invoking
+  Write/Edit. Wait for explicit go-ahead. Files outside `databricks_code/`
+  (claudedocs/, docs/, .claude/, the memory dir, root-level files like
+  test_views.sql) can be edited without the propose-then-ask handshake —
+  those are notes, plans, and config, not deployable bundle code.
+
+- **One task at a time. Park new findings, don't act on them.** If a
+  separate problem is spotted mid-task (drift in another file, an
+  inconsistency, a missing feature), name it briefly in chat and move on.
+  Do not edit code to fix it. After the current task is committed, surface
+  the parked items so Jim can decide whether each belongs on the same
+  branch, a follow-up branch, or the backlog. This protects branch scope
+  and keeps PR diffs aligned with their stated purpose.
 
 - **Validate constantly.** After every YAML change, run `databricks bundle validate` before
   proceeding. Treat a clean validate as the checkpoint before each next step.
