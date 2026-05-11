@@ -786,6 +786,26 @@ on:
         required: true
 ```
 
+
+  - workflow_dispatch: — the event name. Adding this key makes the workflow appear in the Actions tab with a "Run workflow" button. Without it, the workflow only runs on its other
+   configured triggers (push, pull_request, etc.).
+  - inputs: — a map of named parameters the user fills in when triggering the run. Each input becomes available inside jobs as ${{ inputs.<name> }} (or ${{
+  github.event.inputs.<name> }} in older syntax).
+  - target: — the input's name. You'll reference it later as ${{ inputs.target }} — likely passed to databricks bundle deploy --target ${{ inputs.target }}.
+  - description: — the label shown next to the field in the GitHub UI form.
+  - type: choice — renders as a dropdown. Other types: string (free text), boolean (checkbox), environment (dropdown of repo environments), number.
+  - options: [staging] — the dropdown's allowed values. Currently only staging — odd for a one-item dropdown, but it sets up a pattern: when prod is added later, it becomes
+  options: [staging, prod].
+  - default: staging — pre-selected value in the form.
+  - required: true — input must have a value. With a default + only one option, this is belt-and-suspenders, but it's the safe convention.
+
+
+
+
+
+
+
+
 Add this job to the `jobs:` block:
 
 ```yaml
