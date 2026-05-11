@@ -38,6 +38,22 @@ def _audit(table):
         )
     return f"{_AUDIT_SCHEMA_NAME}.{table}"
 
+
+def _to_utc_aware(dt):
+    """Normalize a datetime to offset-aware UTC. None → None.
+
+    Naive datetimes are assumed to be UTC. Used at the entry of audit
+    helpers because callers may pass freshly-minted aware datetimes
+    (`datetime.now(timezone.utc)`) or naive datetimes read back from
+    Spark TIMESTAMP columns; mixing the two in subtraction raises
+    TypeError.
+    """
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
+
 _AUDIT_SCHEMA = StructType([
     StructField("pipeline_run_id",    StringType(),    False),
     StructField("pipeline_name",      StringType(),    False),
@@ -71,6 +87,9 @@ def pipeline_log_upsert(
         error_message:     Exception message on failure (None otherwise).
     """
 
+    started_timestamp = _to_utc_aware(started_timestamp)
+    ended_timestamp   = _to_utc_aware(ended_timestamp)
+
     duration_seconds = (
         (ended_timestamp - started_timestamp).total_seconds()
         if ended_timestamp else None
@@ -97,6 +116,73 @@ def pipeline_log_upsert(
         .whenMatchedUpdateAll() \
         .whenNotMatchedInsertAll() \
         .execute()
+
+
+def pipeline_log_finalize(spark, pipeline_run_id: str):
+    """
+    Close out a pipeline_log row at end of run.
+
+    Reads pipeline_name + started_timestamp from the existing row, scans
+    pipeline_step_log for failures attributable to this run, and upserts
+    the row with final status, ended_timestamp, duration, and an
+    aggregated error_message.
+
+    Status derivation:
+        - Any pipeline_step_log row with status='failed' → pipeline
+          status='failed', error_message lists the failed notebooks.
+        - Otherwise → 'succeeded'.
+
+    Args:
+        spark:           Active SparkSession.
+        pipeline_run_id: FK to pipeline_log. Must already exist (created
+                         by pipeline_log_upsert at run start).
+
+    Raises:
+        ValueError: if no pipeline_log row exists for pipeline_run_id.
+    """
+    header = spark.sql(f"""
+        SELECT pipeline_name, started_timestamp
+        FROM {_audit('pipeline_log')}
+        WHERE pipeline_run_id = '{pipeline_run_id}'
+    """).collect()
+
+    if not header:
+        raise ValueError(
+            f"No pipeline_log row exists for pipeline_run_id='{pipeline_run_id}'. "
+            f"Call pipeline_log_upsert at run start before pipeline_log_finalize."
+        )
+
+    pipeline_name     = header[0]["pipeline_name"]
+    started_timestamp = header[0]["started_timestamp"]
+    ended_timestamp   = datetime.now(timezone.utc)
+
+    # pipeline_step_log is the source of truth for what happened. Any
+    # 'failed' step row means the pipeline failed, regardless of how the
+    # surrounding Databricks job tasks reported.
+    failed = spark.sql(f"""
+        SELECT
+            COUNT(*)                    AS failed_count,
+            COLLECT_LIST(notebook_name) AS failed_notebooks
+        FROM {_audit('pipeline_step_log')}
+        WHERE pipeline_run_id = '{pipeline_run_id}'
+          AND status = 'failed'
+    """).collect()[0]
+
+    if failed["failed_count"] > 0:
+        status        = "failed"
+        error_message = (
+            f"{failed['failed_count']} step(s) failed: "
+            f"{', '.join(failed['failed_notebooks'])}. "
+            f"See {_audit('pipeline_step_log')} for details."
+        )
+    else:
+        status        = "succeeded"
+        error_message = None
+
+    pipeline_log_upsert(
+        spark, pipeline_run_id, pipeline_name, status,
+        started_timestamp, ended_timestamp, error_message,
+    )
 
 
 # ----------------------------------------------------------
@@ -156,6 +242,9 @@ def pipeline_step_log_upsert(
         ended_timestamp:   datetime when the step ended (None if still running).
         error_message:     Exception message on failure (None otherwise).
     """
+
+    started_timestamp = _to_utc_aware(started_timestamp)
+    ended_timestamp   = _to_utc_aware(ended_timestamp)
 
     duration_seconds = (
         (ended_timestamp - started_timestamp).total_seconds()
@@ -294,6 +383,9 @@ def transform_detail_log_insert(
           pre/post count difference or InsertedDate/UpdatedDate query, not
           DESCRIBE HISTORY (which returns zeros for atomic blocks).
     """
+
+    started_timestamp = _to_utc_aware(started_timestamp)
+    ended_timestamp   = _to_utc_aware(ended_timestamp)
 
     duration_seconds = (
         (ended_timestamp - started_timestamp).total_seconds()

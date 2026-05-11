@@ -1,10 +1,14 @@
 # -------------------------------------------------------------------------------
-# A simple script that initializes that inserts a record into pipeline_run_log
-# and sets a taskValue to the pipeline_run_id to be used by all other tasks
-# At root scope of project as this is project specific    JDD TEST EDIT
+# Finalize the pipeline_log row written by init_pipeline_run_log.py.
+# All logic lives in pipeline_logging.pipeline_log_finalize — this script just
+# bootstraps the import path, recovers the run_id from the init task's
+# taskValue, and hands off.
+#
+# Wired into the bundle as the last task of vinoworld_elt_pipeline with
+# run_if: ALL_DONE so it executes whether upstream succeeded, failed, or
+# was skipped.
 # -------------------------------------------------------------------------------
-import sys, uuid
-from datetime import datetime, timezone
+import sys
 
 # shared_lib_path comes from sys.argv[1] (bundle spark_python_task.parameters
 # → ${var.shared_lib_path}). catalog comes from sys.argv[2] (${var.catalog}).
@@ -18,17 +22,13 @@ if len(sys.argv) < 2:
 sys.path.insert(0, sys.argv[1])
 catalog = sys.argv[2] if len(sys.argv) > 2 else "vinoworld"
 
-from pipeline_logging import pipeline_log_upsert, configure
+from pipeline_logging import pipeline_log_finalize, configure
 configure(f"{catalog}.audit")
 
+PIPELINE_RUN_ID = dbutils.jobs.taskValues.get(
+    taskKey="init_pipeline_log",
+    key="pipeline_run_id",
+)
 
-PIPELINE_RUN_ID   = str(uuid.uuid4())
-PIPELINE_START_TS = datetime.now(timezone.utc)
-PIPELINE_NAME     = "Vinoworld TEST LOAD"
-PIPELINE_STATUS   = "running"
-PIPELINE_END_TS   = None
-ERROR_MESSAGE     = None
-
-dbutils.jobs.taskValues.set(key="pipeline_run_id", value=PIPELINE_RUN_ID)
-
-pipeline_log_upsert(spark, PIPELINE_RUN_ID, PIPELINE_NAME, PIPELINE_STATUS, PIPELINE_START_TS)
+pipeline_log_finalize(spark, PIPELINE_RUN_ID)
+print(f"pipeline_log closed: run_id={PIPELINE_RUN_ID}")

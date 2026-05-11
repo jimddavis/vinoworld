@@ -151,6 +151,51 @@ resources:
           notebook_task:
             notebook_path: ./notebooks/gold/gold_01_load_sales_fact.ipynb
 
+        # run_if: ALL_DONE → fires whether load_gold_sales_fact succeeded,
+        # failed, or was skipped (e.g. upstream bronze failure cascaded down).
+        # Reads audit.pipeline_step_log to decide final status — see the
+        # script header for the contract.
+        - task_key: finalize_pipeline_log
+          depends_on:
+            - task_key: load_gold_sales_fact
+          run_if: ALL_DONE
+          spark_python_task:
+            python_file: ./libs/finalize_pipeline_run_log.py
+            parameters:
+              - "${var.shared_lib_path}"
+              - "${var.catalog}"
+          environment_key: Default
+
+      queue:
+        enabled: true
+      environments:
+        - environment_key: Default
+          spec:
+            environment_version: "5"
+      performance_target: PERFORMANCE_OPTIMIZED
+
+    # -----------------------------------------------------------------------
+    # Job 3: Reset (dev-only maintenance)
+    # Truncates all managed tables, then moves any archived source files
+    # back into the active Bronze volume paths so a fresh end-to-end run
+    # can start from a clean slate. Run via:
+    #   databricks bundle run vinoworld_reset_pipeline --target user
+    # -----------------------------------------------------------------------
+    vinoworld_reset_pipeline:
+      name: Vinoworld_Reset (${bundle.target})
+      tasks:
+        - task_key: truncate_all_tables
+          notebook_task:
+            notebook_path: ./notebooks/001-Truncate_All_Tables.ipynb
+          environment_key: Default
+
+        - task_key: move_archive_to_bronze
+          depends_on:
+            - task_key: truncate_all_tables
+          notebook_task:
+            notebook_path: ./notebooks/000-MoveFilesFromArchiveToBronze.ipynb
+          environment_key: Default
+
       queue:
         enabled: true
       environments:
