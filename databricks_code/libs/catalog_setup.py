@@ -494,3 +494,185 @@ def create_gold_tables(spark, gold_schema, silver_schema):
     ]
     return _run_ddl(spark, statements)
 
+
+# ---------------------------------------------------------------------------
+# Group D: Diagnostic / reporting views
+# ---------------------------------------------------------------------------
+
+def create_audit_views(spark, audit_schema):
+    """
+    Diagnostic views over the pipeline-logging audit tables. Call AFTER
+    create_audit_tables — these views reference pipeline_log,
+    pipeline_step_log, and transform_detail_log.
+    """
+    statements = [
+        (f"{audit_schema}.vw_pipeline_run_summary", f"""
+            CREATE OR REPLACE VIEW {audit_schema}.vw_pipeline_run_summary AS
+            SELECT
+                p.pipeline_run_id,
+                p.pipeline_name,
+                p.status                                                AS run_status,
+                date_format(p.started_timestamp, 'yyyy-MM-dd HH:mm:ss') AS run_started,
+                p.ended_timestamp                                       AS run_ended,
+                p.duration_seconds                                      AS run_duration_seconds,
+                COUNT(s.step_log_id)                                    AS step_count,
+                SUM(CASE WHEN s.status = 'succeeded' THEN 1 ELSE 0 END) AS succeeded_steps,
+                SUM(CASE WHEN s.status = 'failed'    THEN 1 ELSE 0 END) AS failed_steps,
+                SUM(CASE WHEN s.status = 'running'   THEN 1 ELSE 0 END) AS running_steps,
+                SUM(s.rows_read)                                        AS total_rows_read,
+                SUM(s.rows_written)                                     AS total_rows_written,
+                p.error_message                                         AS run_error_message
+            FROM {audit_schema}.pipeline_log p
+            LEFT JOIN {audit_schema}.pipeline_step_log s
+                ON s.pipeline_run_id = p.pipeline_run_id
+            GROUP BY
+                p.pipeline_run_id, p.pipeline_name, p.status,
+                p.started_timestamp, p.ended_timestamp, p.duration_seconds,
+                p.error_message
+        """),
+        (f"{audit_schema}.vw_pipeline_step_drilldown", f"""
+            CREATE OR REPLACE VIEW {audit_schema}.vw_pipeline_step_drilldown AS
+            SELECT
+                p.pipeline_name,
+                date_format(p.started_timestamp, 'yyyy-MM-dd HH:mm:ss') AS run_started,
+                s.pipeline_run_id,
+                s.step_sequence,
+                s.layer,
+                s.notebook_folder,
+                s.notebook_name,
+                s.target_table                                  AS step_target_table,
+                s.status                                        AS step_status,
+                s.rows_read                                     AS step_rows_read,
+                s.rows_written                                  AS step_rows_written,
+                s.started_timestamp                             AS step_started,
+                s.ended_timestamp                               AS step_ended,
+                s.duration_seconds                              AS step_duration_seconds,
+
+                t.source_table                                  AS transform_source,
+                t.target_table                                  AS transform_target,
+                t.status                                        AS transform_status,
+                t.rows_read                                     AS transform_rows_read,
+                t.rows_written                                  AS transform_rows_written,
+                t.rows_inserted                                 AS transform_rows_inserted,
+                t.rows_updated                                  AS transform_rows_updated,
+                t.rows_expired                                  AS transform_rows_expired,
+                t.rows_rejected                                 AS transform_rows_rejected,
+                t.duration_seconds                              AS transform_duration_seconds,
+
+                COALESCE(t.error_message, s.error_message)      AS error_message
+            FROM {audit_schema}.pipeline_step_log s
+            INNER JOIN {audit_schema}.pipeline_log p
+                ON p.pipeline_run_id = s.pipeline_run_id
+            LEFT JOIN {audit_schema}.transform_detail_log t
+                ON t.step_log_id = s.step_log_id
+        """),
+    ]
+    return _run_ddl(spark, statements)
+
+
+def create_reporting_views(spark, reporting_schema, silver_schema, gold_schema):
+    """
+    Reporting views over the gold sales_fact. Call AFTER create_gold_tables —
+    these views reference gold.sales_fact and silver.dim_*.
+
+    vw_sales_fact is the base view (joins to all dims); the others aggregate
+    from vw_sales_fact, so creation order matters within the statement list.
+    """
+    statements = [
+        # Base view — joins gold.sales_fact to silver dims directly. Joining
+        # silver.dim_product (not gold.dim_product) so historical SCD2 rows
+        # still resolve — gold.dim_product filters IsRowCurrent = TRUE.
+        (f"{reporting_schema}.vw_sales_fact", f"""
+            CREATE OR REPLACE VIEW {reporting_schema}.vw_sales_fact AS
+            SELECT
+                dd.YearMonth                AS year_month,
+                dd.DateYear                 AS sales_year,
+                dd.DateMonth                AS sales_month_num,
+                dd.Quarter                  AS sales_quarter,
+                dd.Season                   AS sales_season,
+
+                dp.ProductNo                AS product_no,
+                dp.ProductName              AS product_name,
+                dp.Variety                  AS variety,
+                dp.Winery                   AS winery,
+                dp.Vintage                  AS vintage,
+                dp.Score                    AS score,
+
+                ds.StoreName                AS store_name,
+                ds.StoreType                AS store_type,
+                dt.TerritoryName            AS territory_name,
+                dt.TradeRegion              AS trade_region,
+                dt.Continent                AS continent,
+                dr.Province                 AS province,
+                dr.RegionName               AS region_name,
+
+                dc.CurrencyCode             AS currency_code,
+                dc.CurrencyName             AS currency_name,
+
+                f.quantity                  AS quantity,
+                f.list_price_local          AS list_price_local,
+                f.total_sales               AS total_sales_local,
+                f.exchange_rate_applied     AS exchange_rate_applied,
+                f.list_price_converted      AS list_price_eur,
+                f.total_sales_converted     AS total_sales_eur,
+
+                f.inserted_ts               AS fact_inserted_ts
+            FROM {gold_schema}.sales_fact          f
+            LEFT JOIN {silver_schema}.dim_date      dd  ON dd.DateId      = f.date_id
+            LEFT JOIN {silver_schema}.dim_product   dp  ON dp.ProductId   = f.product_id
+            LEFT JOIN {silver_schema}.dim_store     ds  ON ds.StoreId     = f.store_id
+            LEFT JOIN {silver_schema}.dim_territory dt  ON dt.TerritoryId = f.territory_id
+            LEFT JOIN {silver_schema}.dim_region    dr  ON dr.RegionId    = f.region_id
+            LEFT JOIN {silver_schema}.dim_currency  dc  ON dc.CurrencyId  = f.currency_id
+        """),
+        (f"{reporting_schema}.vw_sales_monthly_by_store", f"""
+            CREATE OR REPLACE VIEW {reporting_schema}.vw_sales_monthly_by_store AS
+            SELECT
+                year_month,
+                sales_year,
+                sales_month_num,
+                store_name,
+                store_type,
+                currency_code,
+                SUM(quantity)               AS total_quantity,
+                SUM(total_sales_local)      AS total_sales_local,
+                SUM(total_sales_eur)        AS total_sales_eur,
+                COUNT(*)                    AS fact_row_count
+            FROM {reporting_schema}.vw_sales_fact
+            GROUP BY
+                year_month, sales_year, sales_month_num,
+                store_name, store_type, currency_code
+        """),
+        (f"{reporting_schema}.vw_top_products", f"""
+            CREATE OR REPLACE VIEW {reporting_schema}.vw_top_products AS
+            SELECT
+                product_no,
+                product_name,
+                variety,
+                winery,
+                vintage,
+                score,
+                SUM(quantity)               AS total_quantity,
+                SUM(total_sales_eur)        AS total_sales_eur,
+                RANK() OVER (
+                    ORDER BY SUM(total_sales_eur) DESC, SUM(quantity) DESC
+                )                           AS revenue_rank
+            FROM {reporting_schema}.vw_sales_fact
+            GROUP BY
+                product_no, product_name, variety, winery, vintage, score
+        """),
+        (f"{reporting_schema}.vw_sales_by_variety_winery", f"""
+            CREATE OR REPLACE VIEW {reporting_schema}.vw_sales_by_variety_winery AS
+            SELECT
+                variety,
+                winery,
+                COUNT(DISTINCT product_no)  AS distinct_products,
+                SUM(quantity)               AS total_quantity,
+                SUM(total_sales_eur)        AS total_sales_eur,
+                AVG(CAST(score AS DOUBLE))  AS avg_score
+            FROM {reporting_schema}.vw_sales_fact
+            GROUP BY variety, winery
+        """),
+    ]
+    return _run_ddl(spark, statements)
+
