@@ -1,290 +1,244 @@
-# Vinoworld Databricks Bundle Project
+# Project Operating Manual
 
-## Learning Mode
+This is a general operating framework for Claude Code sessions on this project.
+Project-specific details — bespoke helpers, deviations from best practice,
+in-flight migrations, gotchas, environment notes — live in `.claude/project/`
+and are referenced below.
 
-This project is Jim's primary Databricks learning environment. Lean toward MORE
-explicitness, not less:
+The general framework changes rarely. The project files change as the project
+evolves.
 
-- **State confidence levels on platform-specific claims** (verified / projected /
-  guessing). Don't state Databricks-specific behavior with the same confidence as
-  general Python or SQL.
-- **Offer to verify** via WebFetch (Databricks docs) or a cheap probe before
-  committing to a non-trivial platform behavior. The cost of a doc lookup is
-  seconds; the cost of a failed deploy + diagnosis is tens of minutes.
-- **Repeat reminders** even if stated earlier in the session — Jim is absorbing
-  many new concepts and can't be expected to retain every one.
-- **When a gotcha is hit, persist it** — add to the anti-patterns table in
-  `databricks/.claude/CLAUDE.md`, or a memory feedback file, or this CLAUDE.md.
-  Don't just resolve in the moment.
-
-Token usage is a secondary concern while learning. Optimize for retention and
-verification, not brevity.
+> This template assumes a Databricks Asset Bundle project. For other project
+> types, strip the Databricks-specific items in § 10–§ 11 and replace with
+> the analogous workflow (e.g., `npm test`, `cargo check`, etc.).
 
 ---
 
-## Project Purpose
+## 1. Project context
 
-This is a **learning project** for converting an existing Databricks notebook pipeline into a
-Databricks Asset Bundle (DAB). The pipeline is already working in Azure Databricks. The goal
-is not to change what the pipeline does — it is to learn how to package, configure, and deploy
-it using the Bundle framework.
-
-**Teach as you go.** Before making any change, explain what you are about to do and why.
-Introduce Bundle concepts as they become relevant. Do not silently apply best practices;
-surface them with a brief explanation so Jim can learn the pattern, not just the output.
+See @.claude/project/environments.md — deployment targets, runtime
+environments, and explicit out-of-scope topics for this project.
 
 ---
 
-## Developer Background
+## 2. Prime directive: match existing patterns
 
-Jim has strong SQL Server and dimensional modeling experience, and has been learning
-Databricks/PySpark over the past several months. He understands the Medallion Architecture
-(Bronze/Silver/Gold), Unity Catalog hierarchy (catalog → schema → table), and notebook-based
-orchestration. He is new to Databricks Asset Bundles, the Databricks CLI. He does have YAML-driven
-configuration experience from Drupal, and has explored Azure Bicep.
+Before writing any new file or function, **read the closest existing analog
+in the repo and mirror its structure exactly.** Targeted, not exhaustive —
+one file is enough.
 
-Do not over-explain PySpark or SQL concepts. Do explain Bundle-specific concepts
-(targets, resources, artifact paths, variable substitution, etc.) every time they appear.
+If no analog exists, **stop and ask** before inventing a pattern. "It works"
+is not the bar. "It works AND looks like the rest of the codebase" is.
 
----
+### When in doubt, ASK — do not guess
 
-## Project Structure
+If there is ANY ambiguity about the correct pattern to follow — multiple
+analogs differ, the pattern is only partially clear, you can't tell whether
+a deviation in @.claude/project/deviations.md applies, you're not sure which
+of two helpers fits, you can't decide which value belongs in a constant —
+**stop and ask.**
 
-```
-.
-├── Shared/                        # Shared Python utilities (canonical versions)
-│   ├── catalog_setup.py
-│   ├── notebook_init.ipynb
-│   ├── pipeline_logging.py
-│   └── pipeline_utils.py
-├── data/                          # Source CSV/JSON files
-│   ├── Arancione_2022_01.csv
-│   ├── Arancione_Products.csv
-│   ├── Celeste_2022_01.csv
-│   ├── Celeste_Products.csv
-│   ├── Currency.csv
-│   ├── Dates.csv
-│   ├── ExchangeRates.csv
-│   ├── Store.csv
-│   ├── Territory.csv
-│   ├── Verde_2022_01.json
-│   └── Verde_Products.csv
-├── jobs/
-│   └── Vinoworld_ELT_Pipeline.yaml   # Original job YAML exported from Databricks UI
-├── notebooks/
-│   ├── 000-MoveFilesFromArchiveToBronze.ipynb
-│   ├── 000-Pipeline_Logging_test.ipynb
-│   ├── 01-Pipeline_Orchestrator.ipynb
-│   ├── bronze/
-│   │   ├── brz_01_arancione_sales.ipynb
-│   │   ├── brz_02_celeste_sales.ipynb
-│   │   ├── brz_03_verde_sales.ipynb
-│   │   └── brz_04_products.ipynb
-│   ├── gold/
-│   │   └── gold_01_load_sales_fact.ipynb
-│   ├── init_pipeline_run_log.py
-│   ├── notebook_init.ipynb           # STALE — canonical version is in Shared/
-│   └── silver/
-│       ├── slvr_01_load_dim_fromcsv.ipynb
-│       ├── slvr_02_load_dim_product.ipynb
-│       ├── slvr_03_load_dim_region.ipynb
-│       └── slvr_04_load_sales.ipynb
-├── setup/
-│   └── catalog_ddl.ipynb
-├── src/
-│   └── init_pipeline_run_log.py
-└── databricks.yml                    # CREATED DURING THIS PROJECT — Bundle root config
-```
+The cost of a clarifying question is seconds. The cost of guessing wrong
+and writing inconsistent code is a manual cleanup task for the user and a
+diluted convention for the next contributor. Default to asking, not to
+proceeding on a hunch.
 
-**Authoritative sources:**
-- `Shared/` contains the canonical shared utilities. `notebooks/notebook_init.ipynb` is stale.
-- `jobs/Vinoworld_ELT_Pipeline.yaml` is the source job definition but will be superseded by
-  the Bundle resource definition in `databricks.yml`.
+This applies everywhere — naming, structure, helper choice, log columns,
+SQL idiom, YAML layout. If you find yourself thinking "I think this is
+right," that thought IS the ambiguity signal. Surface it.
+
+Default to **standard Databricks medallion best practices** (Unity Catalog
+three-part names, MERGE for idempotent writes, explicit schemas not
+`inferSchema`, `GENERATED ALWAYS AS IDENTITY` for surrogate keys, `F.current_timestamp()`
+in DataFrame columns not `datetime.now()`, two-part task naming, etc.)
+**EXCEPT** where this project has deliberately chosen otherwise.
+See @.claude/project/deviations.md for that list.
 
 ---
 
-## Environments
+## 3. Frequency does not equal correctness
 
-### Primary: Databricks Free Edition (learning)
-- **Workspace**: Databricks.com Free Edition (not Azure)
-- **Unity Catalog**: Included and active — metastore auto-provisioned
-- **Compute**: Serverless only — no classic clusters. Bundle job definitions must use
-  serverless compute config, not classic cluster specs.
-- **Catalog name**: Ask Jim to confirm before referencing in any YAML
-- **Authentication**: Databricks CLI with `databricks auth login`
-- **CLI status**: Not yet installed — CLI setup is the first task in this project
-- **Account console**: Not available in Free Edition — workspace-level only
+When you find pattern A in some files and pattern B in others, **do not
+normalize to the more frequent one.** The minority pattern may be the newer
+canonical direction that hasn't finished propagating.
 
-### Secondary: Azure Databricks (validation only)
-- The pipeline has been verified working in Azure Databricks.
-- Azure is **not used for iterative learning** — it burns credits too quickly.
-- After Bundle work is solid in Free Edition, a port to Azure is a future step.
-- Do not reference Azure-specific config or connection strings during the learning phase.
+When you spot an inconsistency:
+1. Stop.
+2. Name it in chat: "I see X in these files and Y in these files."
+3. Check @.claude/project/migrations.md. If listed, use the new pattern; do
+   NOT propagate the old.
+4. If not listed, ask which is canonical before proceeding.
+5. Do not update old-pattern occurrences during the current task — park them.
 
----
-
-## Multi-Environment Strategy
-
-We are implementing a **single-workspace, multi-target** pattern. Since Free Edition provides
-one workspace, environments are simulated via catalog/schema naming prefixes rather than
-separate workspaces. This is the same pattern used in real single-workspace production setups.
-
-| Target  | Catalog prefix  | Purpose                         |
-|---------|----------------|---------------------------------|
-| dev     | `dev_`         | Jim's personal development runs |
-| staging | `staging_`     | Pre-production validation       |
-| prod    | (no prefix)    | Production — the live pipeline  |
-
-Bundle targets will use variable substitution to inject the correct prefix at deploy time.
-`databricks bundle deploy --target dev` vs `--target prod` is the core workflow to teach.
-
-GitHub Actions CI/CD is **out of scope for now** — focus is on local CLI-driven deployment.
-The project structure should be CI/CD-ready (clean targets, no hardcoded values) so it can
-be extended later without rework.
+Specifically, do NOT:
+- "Fix" a file by changing it to match the majority pattern.
+- Add new code using the majority pattern just because it's more common.
+- Treat a minority pattern as a bug to be silently normalized away.
 
 ---
 
-## Bundle Learning Sequence
+## 4. Load-bearing values must be centralized
 
-Work through these phases in order. Complete and validate each phase before moving to the next.
+A "load-bearing value" is any value that must be identical across multiple
+files for the system to work — catalog names, paths, table names, status
+strings, etc. These live in **exactly one place** and are referenced
+everywhere else.
 
-### Phase 1 — CLI Setup and Authentication
-- Install Databricks CLI in WSL2/Ubuntu
-- Authenticate to the Azure Databricks workspace (`databricks auth login`)
-- Verify with `databricks workspace list /`
+Rules:
+- If a value appears (or is about to appear) in more than one file, treat it
+  as load-bearing. Touching it requires the protocol in § 5.
+- If you're about to type the same string in a second place, **stop and
+  propose a constant** instead.
+- **No hardcoded strings for values that have a constant.** Status literals,
+  table names, catalog names, schema names, paths — if a constant exists, use
+  it. If a constant doesn't exist for a load-bearing value, propose one
+  before writing the second occurrence.
 
-### Phase 2 — Minimal Bundle Scaffold
-- Create `databricks.yml` (bundle name, workspace host, one target)
-- Run `databricks bundle validate` — get to a clean validate before adding resources
-- Explain the YAML schema as each section is introduced
-
-### Phase 3 - Learning Step: Create a Simple, but non-trivial bundle to create catalog, schema, table and notebooks in a new "space".  This step is to get a feel for how the CLI works before starting the conversion.
-
-### Phase 4 — Add the Job Resource
-- Convert `jobs/Vinoworld_ELT_Pipeline.yaml` into the `resources.jobs` section of `databricks.yml`
-- Explain what changes between a standalone job YAML and a Bundle resource definition
-- Run `databricks bundle deploy --target dev` and verify the job appears in the workspace
-
-### Phase 5 — Variable Substitution for Multi-Environment
-- Extract hardcoded catalog/schema names into Bundle variables
-- Configure `dev`, `staging`, and `prod` targets with environment-specific variable values
-- Deploy to dev and prod and show that each uses the correct catalog prefix
-
-### Phase 6 — Artifact Paths and Notebook Deployment
-- Understand how Bundle deploys notebooks to the workspace file system
-- Configure `artifact_path` so notebooks land in a predictable, environment-specific location
-- Verify notebook paths in the deployed job match what Bundle deployed
-
-### Phase 7 — Run and Validate
-- Trigger a job run via `databricks bundle run`
-- Compare behavior of a Bundle-triggered run vs a manual UI-triggered run
-- Review run output and logs
+If you see a hardcoded value during normal work, **call it out** — don't
+silently leave it for "someone" to clean up later, and don't silently replicate
+it in your own additions.
 
 ---
 
-## Working Conventions
+## 5. Global replacements are atomic
 
-- **Propose code changes before applying them.** For any change under
-  `databricks_code/` (notebooks, `.py` scripts, `databricks.yml`, `libs/`,
-  `setup/`), describe the planned change first and ask before invoking
-  Write/Edit. Wait for explicit go-ahead. Files outside `databricks_code/`
-  (claudedocs/, docs/, .claude/, the memory dir, root-level files like
-  test_views.sql) can be edited without the propose-then-ask handshake —
-  those are notes, plans, and config, not deployable bundle code.
+When a load-bearing value or cross-file pattern must change, that is **one
+task, not many**.
 
-- **One task at a time. Park new findings, don't act on them.** If a
-  separate problem is spotted mid-task (drift in another file, an
-  inconsistency, a missing feature), name it briefly in chat and move on.
-  Do not edit code to fix it. After the current task is committed, surface
-  the parked items so Jim can decide whether each belongs on the same
-  branch, a follow-up branch, or the backlog. This protects branch scope
-  and keeps PR diffs aligned with their stated purpose.
+Protocol:
+1. Before any edit, grep the entire repo for every occurrence of the old value.
+2. Show the user the full list and confirm migration should proceed.
+3. Update every occurrence in a single change set. No partial migrations.
+4. Grep again to confirm zero remaining occurrences. Paste the output as
+   evidence.
+5. Run validation (`databricks bundle validate --target user`). Where
+   possible, deploy and run one affected notebook to confirm nothing
+   regressed.
+6. Move the entry from "in-flight" to "forbidden strings" in
+   @.claude/project/migrations.md.
 
-- **Validate constantly.** After every YAML change, run `databricks bundle validate` before
-  proceeding. Treat a clean validate as the checkpoint before each next step.
+**Half-migrated states are forbidden.** If a global replacement cannot be
+completed in one session, do not start it.
 
-- **One concept at a time.** Do not introduce variable substitution and job resources in the
-  same step. Sequence changes so each step has one new concept.
-
-- **Preserve the existing pipeline logic.** Do not refactor notebook code during this project.
-  The notebooks work. The goal is packaging, not rewriting.
-
-- **Show diffs, not replacements.** When modifying `databricks.yml`, show what changed and
-  explain why. Do not silently overwrite the whole file.
-
-- **Ask before assuming catalog name.** The Unity Catalog name must be confirmed with Jim
-  before it appears in any YAML. Do not infer it from notebook code.
-
-- **WSL paths apply.** All CLI commands run in WSL2/Ubuntu. File paths use Linux conventions.
-  The project root is in the WSL filesystem (not `/mnt/c/...`).
-
-- **Only upload files required by Databricks at runtime.** The bundle sync should contain
-  only notebooks, Python scripts, and YAML that the pipeline actually executes. Documentation,
-  learning notes, CLI reference files, local scratch files, and project tooling (`.claude/`,
-  `docs/`, `learning/`, `jobs/`, `git/`, `val.json`, `.gitignore`) must be excluded via
-  `sync.exclude` in `databricks.yml`. Use `.gitignore` for files that should be excluded
-  from both git and the workspace. Use `sync.exclude` for files that belong in git but
-  not in the workspace. Validate the exclusion list is current whenever new non-runtime
-  folders are added to the project.
-
-- **Force a clean sync when files are missing.** The CLI maintains a local sync snapshot in
-  `.databricks/bundle/<target>/sync-snapshots/` to avoid re-uploading unchanged files.
-  After a laptop restart or any time files are deleted/moved in the Databricks UI, this
-  snapshot gets out of sync and the CLI silently skips re-uploading files it thinks are
-  already there. Delete the snapshot directory to force the CLI to re-evaluate from scratch:
-  ```
-  rm -rf .databricks/bundle/dev/sync-snapshots/
-  databricks bundle deploy --target dev
-  ```
+If during unrelated work you notice an old value where it shouldn't be, do
+NOT silently update it. Park the finding.
 
 ---
 
-## Troubleshooting
+## 6. Canonical helpers
 
-### Files missing after bundle deploy (ghost sync)
-
-**Symptom:** After restarting or switching environments, notebooks or Python files that exist
-locally do not appear in the Databricks workspace after `databricks bundle deploy`.
-
-**Cause:** The CLI keeps a local sync snapshot (`.databricks/bundle/<target>/sync-snapshots/`)
-tracking what it has already uploaded. If the remote workspace state changed (files deleted via
-UI, laptop restarted, etc.) without a corresponding local change, the CLI considers those files
-already in sync and skips uploading them.
-
-**Fix (fastest):** Delete the snapshot so the CLI does a full comparison on the next deploy:
-```bash
-rm -rf .databricks/bundle/dev/sync-snapshots/
-databricks bundle deploy --target dev
-```
-
-**Prevention:** Delete the sync snapshot before deploying to force a complete upload:
-```bash
-rm -rf .databricks/bundle/dev/sync-snapshots/
-databricks bundle deploy --target dev
-```
+See @.claude/project/helpers.md — the bespoke helpers in `libs/`. **If a
+helper exists, use it.** Do not write inline equivalents of logging, hash
+generation, file moves, exception capture, or notebook-context discovery.
 
 ---
 
-## Key Concepts to Introduce (with brief definition each time they appear)
+## 7. In-flight migrations and forbidden strings
 
-- **Bundle** — a project-level packaging format that defines jobs, clusters, and other
-  Databricks resources as code, deployable via CLI
-- **Target** — a named deployment environment within a bundle (dev, staging, prod)
-- **Variable substitution** — `${var.name}` syntax that injects environment-specific values
-  at deploy time
-- **artifact_path** — where the bundle deploys files (notebooks, wheels) in the workspace
-- **bundle validate** — CLI command that checks YAML syntax and resource references without
-  deploying anything
-- **bundle deploy** — CLI command that pushes the bundle to the workspace for a given target
-- **bundle run** — CLI command that triggers a job or pipeline defined in the bundle
+See @.claude/project/migrations.md.
+
+Before declaring any task complete, grep changed files for the forbidden
+strings listed there. If found in NEW or MODIFIED code, stop and fix.
 
 ---
 
-## Out of Scope for This Project
+## 8. Project-specific deviations from best practice
 
-- Refactoring or improving notebook logic
-- DLT (Delta Live Tables / Declarative Pipelines)
-- GitHub Actions or CI/CD automation
-- Terraform or alternative IaC approaches
-- Adding new data sources or pipeline stages
-- Azure Databricks port (future step after Bundle work is solid in Free Edition)
+See @.claude/project/deviations.md — the list of places where this repo
+deliberately differs from standard best practice, and why. Do NOT "fix"
+these to match best practice. They are intentional.
+
+---
+
+## 9. Project-specific gotchas
+
+See @.claude/project/gotchas.md — real failure modes from this project that
+training-data best practices won't warn you about.
+
+---
+
+## 10. Change protocol
+
+### Verify branch before editing
+
+Before any code change, check:
+
+- `git branch --show-current` — is this branch's purpose appropriate for the
+  planned work?
+- `git status` — is the working tree clean, or are there uncommitted
+  changes that don't belong to the current task?
+
+If either answer is "no," stop and resolve before editing. Never make code
+changes directly on `main`/`master`. If the current branch's name and
+intent do not match the proposed work, propose a new branch instead.
+
+### Propose before editing files under `databricks_code/`
+
+For any change inside `databricks_code/` (notebooks, `.py` scripts,
+`databricks.yml`, `libs/`, `setup/`, `dashboards/`), describe the planned
+change first and wait for explicit go-ahead before invoking Write/Edit.
+Files outside `databricks_code/` (`claudedocs/`, `docs/`, `.claude/`, the
+memory dir, root-level notes) can be edited without the handshake — those
+are notes and config, not deployable code.
+
+### Evaluating new findings raised mid-task
+
+When the user raises a new problem or concern mid-task:
+
+1. **Investigate the relevant code** to categorize the finding: is it within
+   the current branch's defined scope, or outside it? Read the relevant
+   files — do not guess from intuition.
+2. **If clearly within scope** → engage as part of the current task.
+3. **If outside scope, or ambiguous** → document the finding in
+   `docs/BACKLOG.md` under "Next up" with the surfacing branch and date,
+   then **return to the current task**. Do NOT start solving, even if a
+   solution is obvious or quick.
+
+The bias is strongly toward deferring. If you find yourself thinking "I can
+just quickly handle this too" — that temptation is the warning sign.
+Entangling two unrelated changes on one branch makes debugging exponentially
+harder; a clean branch-per-concern split is almost always cheaper end-to-end.
+
+For findings you spot on your own (not raised by the user): the lighter
+rule applies — name briefly in chat, move on, surface at end of task. Do
+not invest tokens investigating your own tangents.
+
+### Show diffs, not full-file rewrites
+
+When modifying a file, show what changed and explain why. Never silently
+overwrite when an `Edit` (old_string → new_string) would do.
+
+### Validate after every change
+
+Run `databricks bundle validate --target user`. A clean validate is the bar.
+Don't commit if validate fails.
+
+### Catalog name
+
+Never infer the catalog from notebook code or memory. Ask the user, or read
+it from `databricks.yml`'s `variables.catalog.default`.
+
+### Confirm before destructive actions
+
+`rm -rf`, force pushes, branch deletion, `git reset --hard`, dropping tables,
+publishing to shared workspaces, etc. require explicit confirmation **each
+time**. A historical "yes" doesn't authorize the same action in a new
+context.
+
+---
+
+## 11. Confidence and verification
+
+For platform-specific Databricks behavior, state confidence explicitly:
+
+- **Verified** — read in docs this session or confirmed empirically
+  (validate output, CLI command, probe SQL).
+- **Projected** — extrapolating from general Python/Spark/SQL knowledge,
+  not Databricks-specific. Offer to verify before committing.
+- **Guessing** — don't ship. Say "I don't know — let me check the docs or
+  run a probe."
+
+For non-trivial platform behavior (resource schema fields, task-context
+semantics, permission models, feature availability), default to a `WebFetch`
+against the Databricks docs before recommending. Seconds of doc lookup
+vs. tens of minutes of deploy + diagnose.
