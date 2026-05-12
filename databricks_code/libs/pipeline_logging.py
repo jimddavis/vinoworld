@@ -1,11 +1,18 @@
 # pipeline_logging.py
 # ---------------------------------------------------------------------------
-# Shared methods for pipeline logging.   just an edit
-# Import from notebooks with:
+# Shared audit-logging helpers for the Vinoworld ELT pipeline.
 #
-#   import sys
-#   sys.path.append("/Workspace/Shared")
-#   from pipeline_logging import pipeline_log_upsert, pipeline_step?log_upsert, ingestion?log?insert
+# Imported by libs/notebook_init.ipynb after notebook_init has resolved
+# shared_lib_path and prepended it to sys.path. Notebooks never call
+# sys.path.append themselves; notebook_init handles that.
+#
+# Public functions:
+#   configure(audit_schema)               — call once with f"{CATALOG}.audit"
+#   pipeline_log_upsert(...)              — run-level audit row
+#   pipeline_log_finalize(...)            — close out a run by scanning step log
+#   pipeline_step_log_upsert(...)         — notebook-level audit row
+#   transform_detail_log_insert(...)      — table-level audit row (insert-only)
+#   ingestion_log_insert(...)             — file-level audit (bronze only)
 # ---------------------------------------------------------------------------
 
 import uuid
