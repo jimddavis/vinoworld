@@ -1,6 +1,6 @@
 # pipeline_logging.py
 # ---------------------------------------------------------------------------
-# Shared methods for pipeline logging.
+# Shared methods for pipeline logging.   just an edit
 # Import from notebooks with:
 #
 #   import sys
