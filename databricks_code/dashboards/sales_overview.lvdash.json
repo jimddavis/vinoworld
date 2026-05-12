@@ -1,0 +1,735 @@
+{
+  "datasets": [
+    {
+      "name": "42ac6b89",
+      "displayName": "vw_sales_monthly_by_store",
+      "config": {
+        "version": "1.1",
+        "source": "dev_vinoworld.reporting.vw_sales_monthly_by_store",
+        "dimensions": [
+          {
+            "name": "year_month",
+            "expr": "source.year_month",
+            "displayName": "Year Month"
+          },
+          {
+            "name": "sales_year",
+            "expr": "source.sales_year",
+            "displayName": "Sales Year"
+          },
+          {
+            "name": "sales_month_num",
+            "expr": "source.sales_month_num",
+            "displayName": "Sales Month Num"
+          },
+          {
+            "name": "store_name",
+            "expr": "source.store_name",
+            "displayName": "Store Name"
+          },
+          {
+            "name": "store_type",
+            "expr": "source.store_type",
+            "displayName": "Store Type"
+          },
+          {
+            "name": "currency_code",
+            "expr": "source.currency_code",
+            "displayName": "Currency Code"
+          },
+          {
+            "name": "total_quantity",
+            "expr": "source.total_quantity",
+            "displayName": "Total Quantity"
+          },
+          {
+            "name": "total_sales_local",
+            "expr": "source.total_sales_local",
+            "displayName": "Total Sales Local"
+          },
+          {
+            "name": "total_sales_eur",
+            "expr": "source.total_sales_eur",
+            "displayName": "Total Sales Eur"
+          },
+          {
+            "name": "fact_row_count",
+            "expr": "source.fact_row_count",
+            "displayName": "Fact Row Count"
+          }
+        ],
+        "measures": [
+          {
+            "name": "count",
+            "expr": "COUNT(*)",
+            "comment": "Represents the total number of rows in the dataset. Use this measure to count all",
+            "displayName": "Count"
+          }
+        ]
+      }
+    },
+    {
+      "name": "986d1830",
+      "displayName": "vw_top_products",
+      "config": {
+        "source": "dev_vinoworld.reporting.vw_top_products",
+        "measures": [
+          {
+            "name": "count",
+            "expr": "COUNT(*)",
+            "comment": "Represents the total number of rows in the dataset. Use this measure to count all",
+            "displayName": "Count"
+          }
+        ],
+        "filter": "source.revenue_rank < 26",
+        "version": "1.1",
+        "dimensions": [
+          {
+            "name": "product_no",
+            "expr": "source.product_no",
+            "displayName": "Product No"
+          },
+          {
+            "name": "product_name",
+            "expr": "source.product_name",
+            "displayName": "Product Name"
+          },
+          {
+            "name": "variety",
+            "expr": "source.variety",
+            "displayName": "Variety"
+          },
+          {
+            "name": "winery",
+            "expr": "source.winery",
+            "displayName": "Winery"
+          },
+          {
+            "name": "vintage",
+            "expr": "source.vintage",
+            "displayName": "Vintage"
+          },
+          {
+            "name": "score",
+            "expr": "source.score",
+            "displayName": "Score"
+          },
+          {
+            "name": "total_quantity",
+            "expr": "source.total_quantity",
+            "displayName": "Total Quantity"
+          },
+          {
+            "name": "total_sales_eur",
+            "expr": "source.total_sales_eur",
+            "displayName": "Total Sales Eur"
+          },
+          {
+            "name": "revenue_rank",
+            "expr": "source.revenue_rank",
+            "displayName": "Revenue Rank"
+          }
+        ]
+      }
+    },
+    {
+      "name": "54538558",
+      "displayName": "vw_sales_by_variety_winery",
+      "config": {
+        "source": "dev_vinoworld.reporting.vw_sales_by_variety_winery",
+        "measures": [
+          {
+            "name": "count",
+            "expr": "COUNT(*)",
+            "comment": "Represents the total number of rows in the dataset. Use this measure to count all",
+            "displayName": "Count"
+          }
+        ],
+        "filter": "source.total_sales_eur > 6000 and source.avg_score > 50 and source.distinct_products > 3",
+        "version": "1.1",
+        "dimensions": [
+          {
+            "name": "variety",
+            "expr": "source.variety",
+            "displayName": "Variety"
+          },
+          {
+            "name": "winery",
+            "expr": "source.winery",
+            "displayName": "Winery"
+          },
+          {
+            "name": "distinct_products",
+            "expr": "source.distinct_products",
+            "displayName": "Distinct Products"
+          },
+          {
+            "name": "total_quantity",
+            "expr": "source.total_quantity",
+            "displayName": "Total Quantity"
+          },
+          {
+            "name": "total_sales_eur",
+            "expr": "source.total_sales_eur",
+            "displayName": "Total Sales Eur"
+          },
+          {
+            "name": "avg_score",
+            "expr": "source.avg_score",
+            "displayName": "Avg Score"
+          }
+        ]
+      }
+    },
+    {
+      "name": "53d935e1",
+      "displayName": "vw_pipeline_run_summary",
+      "config": {
+        "version": "1.1",
+        "source": "dev_vinoworld.audit.vw_pipeline_run_summary",
+        "dimensions": [
+          {
+            "name": "pipeline_run_id",
+            "expr": "source.pipeline_run_id",
+            "displayName": "Pipeline Run Id"
+          },
+          {
+            "name": "pipeline_name",
+            "expr": "source.pipeline_name",
+            "displayName": "Pipeline Name"
+          },
+          {
+            "name": "run_status",
+            "expr": "source.run_status",
+            "displayName": "Run Status"
+          },
+          {
+            "name": "run_started",
+            "expr": "source.run_started",
+            "displayName": "Run Started"
+          },
+          {
+            "name": "run_ended",
+            "expr": "source.run_ended",
+            "displayName": "Run Ended"
+          },
+          {
+            "name": "run_duration_seconds",
+            "expr": "source.run_duration_seconds",
+            "displayName": "Run Duration Seconds"
+          },
+          {
+            "name": "step_count",
+            "expr": "source.step_count",
+            "displayName": "Step Count"
+          },
+          {
+            "name": "succeeded_steps",
+            "expr": "source.succeeded_steps",
+            "displayName": "Succeeded Steps"
+          },
+          {
+            "name": "failed_steps",
+            "expr": "source.failed_steps",
+            "displayName": "Failed Steps"
+          },
+          {
+            "name": "running_steps",
+            "expr": "source.running_steps",
+            "displayName": "Running Steps"
+          },
+          {
+            "name": "total_rows_read",
+            "expr": "source.total_rows_read",
+            "displayName": "Total Rows Read"
+          },
+          {
+            "name": "total_rows_written",
+            "expr": "source.total_rows_written",
+            "displayName": "Total Rows Written"
+          },
+          {
+            "name": "run_error_message",
+            "expr": "source.run_error_message",
+            "displayName": "Run Error Message"
+          }
+        ],
+        "measures": [
+          {
+            "name": "count",
+            "expr": "COUNT(*)",
+            "comment": "Represents the total number of rows in the dataset. Use this measure to count all",
+            "displayName": "Count"
+          }
+        ]
+      }
+    }
+  ],
+  "pages": [
+    {
+      "name": "5dcd1d0a",
+      "displayName": "First Vinoworld Dashboard",
+      "layout": [
+        {
+          "widget": {
+            "name": "mn",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "42ac6b89",
+                  "fields": [
+                    {
+                      "name": "store_name",
+                      "expression": "`store_name`"
+                    },
+                    {
+                      "name": "year_month",
+                      "expression": "`year_month`"
+                    },
+                    {
+                      "name": "total_sales_eur",
+                      "expression": "`total_sales_eur`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "frame": {
+                "showTitle": true,
+                "title": "Monthly Sales by Store in EUR",
+                "headerAlignment": "center"
+              },
+              "widgetType": "line",
+              "encodings": {
+                "x": {
+                  "fieldName": "year_month",
+                  "axis": {
+                    "title": "Year and Month"
+                  },
+                  "formatTemplate": "{{ @formatted }}",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fieldName": "total_sales_eur",
+                  "axis": {
+                    "title": "Total Sales"
+                  },
+                  "format": {
+                    "type": "number-plain",
+                    "abbreviation": "compact",
+                    "decimalPlaces": {
+                      "type": "max",
+                      "places": 2
+                    }
+                  },
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "store_name",
+                  "legend": {
+                    "title": "Store Name",
+                    "position": "right"
+                  },
+                  "scale": {
+                    "type": "categorical"
+                  }
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 11,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "t",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "986d1830",
+                  "fields": [
+                    {
+                      "name": "product_no",
+                      "expression": "`product_no`"
+                    },
+                    {
+                      "name": "product_name",
+                      "expression": "`product_name`"
+                    },
+                    {
+                      "name": "variety",
+                      "expression": "`variety`"
+                    },
+                    {
+                      "name": "winery",
+                      "expression": "`winery`"
+                    },
+                    {
+                      "name": "vintage",
+                      "expression": "`vintage`"
+                    },
+                    {
+                      "name": "score",
+                      "expression": "`score`"
+                    },
+                    {
+                      "name": "total_quantity",
+                      "expression": "`total_quantity`"
+                    },
+                    {
+                      "name": "total_sales_eur",
+                      "expression": "`total_sales_eur`"
+                    },
+                    {
+                      "name": "revenue_rank",
+                      "expression": "`revenue_rank`"
+                    }
+                  ],
+                  "filters": [
+                    {
+                      "expression": "IN_RANGE(`revenue_rank`, NULL, NULL)"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "showTitle": true,
+                "title": "Top 25 Products"
+              },
+              "displayRowNumbers": true,
+              "headerHeight": 30,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "product_no"
+                  },
+                  {
+                    "fieldName": "product_name",
+                    "displayName": "Product Name"
+                  },
+                  {
+                    "fieldName": "variety",
+                    "displayName": "Variety"
+                  },
+                  {
+                    "fieldName": "winery"
+                  },
+                  {
+                    "fieldName": "vintage",
+                    "contentAlignment": "center"
+                  },
+                  {
+                    "fieldName": "score",
+                    "contentAlignment": "center",
+                    "style": {
+                      "type": "basic",
+                      "foregroundColor": {
+                        "themeColorType": "visualizationColors",
+                        "position": 3
+                      },
+                      "backgroundColor": {
+                        "themeColorType": "widgetBorderColor"
+                      }
+                    }
+                  },
+                  {
+                    "fieldName": "total_quantity",
+                    "contentAlignment": "center"
+                  },
+                  {
+                    "fieldName": "total_sales_eur",
+                    "contentAlignment": "center"
+                  },
+                  {
+                    "fieldName": "revenue_rank",
+                    "contentAlignment": "center"
+                  }
+                ]
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 6,
+            "width": 11,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "9176785f",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "54538558",
+                  "fields": [
+                    {
+                      "name": "variety",
+                      "expression": "`variety`"
+                    },
+                    {
+                      "name": "total_quantity",
+                      "expression": "`total_quantity`"
+                    },
+                    {
+                      "name": "avg_score",
+                      "expression": "`avg_score`"
+                    },
+                    {
+                      "name": "total_sales_eur",
+                      "expression": "`total_sales_eur`"
+                    }
+                  ],
+                  "filters": [
+                    {
+                      "expression": "IN_RANGE(`total_sales_eur`, NULL, NULL)"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "scatter",
+              "encodings": {
+                "x": {
+                  "fieldName": "avg_score",
+                  "scale": {
+                    "type": "quantitative",
+                    "domain": {
+                      "max": 99,
+                      "min": 85
+                    }
+                  }
+                },
+                "y": {
+                  "fieldName": "total_sales_eur",
+                  "scale": {
+                    "type": "quantitative",
+                    "domain": {
+                      "max": 66000,
+                      "min": 5100
+                    }
+                  }
+                },
+                "color": {
+                  "fieldName": "variety",
+                  "scale": {
+                    "type": "categorical",
+                    "sort": {
+                      "by": "custom-order",
+                      "orderedValues": [
+                        "Cabernet Franc",
+                        "Merlot",
+                        "Nebbiolo",
+                        "Red Blend",
+                        "Sagrantino",
+                        "Sangiovese",
+                        "Sangiovese Grosso"
+                      ]
+                    },
+                    "mappings": [
+                      {
+                        "value": "Sagrantino",
+                        "color": "#D1BA5C"
+                      },
+                      {
+                        "value": "Sangiovese Grosso",
+                        "color": "#62D16F"
+                      },
+                      {
+                        "value": "Sangiovese",
+                        "color": "#3C4ED4"
+                      }
+                    ]
+                  }
+                },
+                "size": {
+                  "fieldName": "total_quantity",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 12,
+            "width": 11,
+            "height": 8
+          }
+        },
+        {
+          "widget": {
+            "name": "84b69774",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "53d935e1",
+                  "fields": [
+                    {
+                      "name": "pipeline_run_id",
+                      "expression": "`pipeline_run_id`"
+                    },
+                    {
+                      "name": "pipeline_name",
+                      "expression": "`pipeline_name`"
+                    },
+                    {
+                      "name": "run_status",
+                      "expression": "`run_status`"
+                    },
+                    {
+                      "name": "run_started",
+                      "expression": "`run_started`"
+                    },
+                    {
+                      "name": "run_ended",
+                      "expression": "`run_ended`"
+                    },
+                    {
+                      "name": "run_duration_seconds",
+                      "expression": "`run_duration_seconds`"
+                    },
+                    {
+                      "name": "step_count",
+                      "expression": "`step_count`"
+                    },
+                    {
+                      "name": "succeeded_steps",
+                      "expression": "`succeeded_steps`"
+                    },
+                    {
+                      "name": "failed_steps",
+                      "expression": "`failed_steps`"
+                    },
+                    {
+                      "name": "running_steps",
+                      "expression": "`running_steps`"
+                    },
+                    {
+                      "name": "total_rows_read",
+                      "expression": "`total_rows_read`"
+                    },
+                    {
+                      "name": "total_rows_written",
+                      "expression": "`total_rows_written`"
+                    },
+                    {
+                      "name": "run_error_message",
+                      "expression": "`run_error_message`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "pipeline_run_id"
+                  },
+                  {
+                    "fieldName": "pipeline_name"
+                  },
+                  {
+                    "fieldName": "run_status"
+                  },
+                  {
+                    "fieldName": "run_started"
+                  },
+                  {
+                    "fieldName": "run_ended"
+                  },
+                  {
+                    "fieldName": "run_duration_seconds"
+                  },
+                  {
+                    "fieldName": "step_count"
+                  },
+                  {
+                    "fieldName": "succeeded_steps"
+                  },
+                  {
+                    "fieldName": "failed_steps"
+                  },
+                  {
+                    "fieldName": "running_steps"
+                  },
+                  {
+                    "fieldName": "total_rows_read"
+                  },
+                  {
+                    "fieldName": "total_rows_written"
+                  },
+                  {
+                    "fieldName": "run_error_message"
+                  }
+                ]
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 20,
+            "width": 11,
+            "height": 6
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layoutVersion": "GRID_V1"
+    }
+  ],
+  "uiSettings": {
+    "theme": {
+      "canvasBackgroundColor": {
+        "light": "#FAFAFB",
+        "dark": "#1F272D"
+      },
+      "widgetBackgroundColor": {
+        "light": "#FFFFFF",
+        "dark": "#11171C"
+      },
+      "widgetBorderColor": {
+        "dark": "#2E6796"
+      },
+      "fontColor": {
+        "light": "#11171C",
+        "dark": "#E8ECF0"
+      },
+      "selectionColor": {
+        "light": "#2272B4",
+        "dark": "#8B8AFF"
+      },
+      "widgetHeaderAlignment": "CENTER",
+      "textBoxVerticalAlign": "VERTICAL_ALIGN_TOP"
+    },
+    "applyModeEnabled": false
+  }
+}

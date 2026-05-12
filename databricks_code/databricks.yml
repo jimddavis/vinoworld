@@ -31,8 +31,18 @@ variables:
       ADLS abfss:// path for catalog MANAGED LOCATION (Azure only).
       Leave empty for Free Edition — omits the clause entirely.
     default: ""
+  warehouse_id:
+    description: >
+      SQL Warehouse ID used by AI/BI Dashboards (and Alerts, when added) to
+      execute their queries. Find via `databricks warehouses list`.
+    default: 44d180bfae8c6d2b
 
 resources:
+  dashboards:
+      sales_overview:
+        display_name: "Vinoworld — Sales Overview"
+        file_path: ./dashboards/sales_overview.lvdash.json
+        warehouse_id: ${var.warehouse_id}
   jobs:
 
     # -----------------------------------------------------------------------
