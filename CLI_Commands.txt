@@ -1,5 +1,9 @@
 
 
+
+ databricks warehouses list
+ databricks catalogs list
+
  databricks bundle validate
 
         Name: vinoworld_bundle

@@ -42,7 +42,7 @@ The sequence below interleaves the two threads, leading with the highest value-f
      dashboards:
        sales_overview:
          display_name: "Vinoworld — Sales Overview"
-         file_path: ../dashboards/sales_overview.lvdash.json
+         file_path: ./dashboards/sales_overview.lvdash.json
          warehouse_id: ${var.warehouse_id}
    ```
 4. Add a `warehouse_id` variable to the bundle (per-target, since each target's workspace has its own warehouse).
