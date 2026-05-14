@@ -1,7 +1,8 @@
 # -------------------------------------------------------------------------------
-# A simple script that initializes that inserts a record into pipeline_run_log
-# and sets a taskValue to the pipeline_run_id to be used by all other tasks
-# At root scope of project as this is project specific    JDD TEST EDIT
+# A simple script that inserts a record into pipeline_run_log and sets a
+# taskValue with the pipeline_run_id for all downstream tasks to consume.
+# Wired into databricks.yml as the first spark_python_task of
+# vinoworld_elt_pipeline.
 # -------------------------------------------------------------------------------
 import sys, uuid
 from datetime import datetime, timezone
@@ -18,14 +19,14 @@ if len(sys.argv) < 2:
 sys.path.insert(0, sys.argv[1])
 catalog = sys.argv[2] if len(sys.argv) > 2 else "vinoworld"
 
-from pipeline_logging import pipeline_log_upsert, configure
+from pipeline_logging import pipeline_log_upsert, configure, STATUS_RUNNING
 configure(f"{catalog}.audit")
 
 
 PIPELINE_RUN_ID   = str(uuid.uuid4())
 PIPELINE_START_TS = datetime.now(timezone.utc)
-PIPELINE_NAME     = "Vinoworld TEST LOAD"
-PIPELINE_STATUS   = "running"
+PIPELINE_NAME     = "vinoworld_elt_pipeline"
+PIPELINE_STATUS   = STATUS_RUNNING
 PIPELINE_END_TS   = None
 ERROR_MESSAGE     = None
 

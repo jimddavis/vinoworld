@@ -4,6 +4,7 @@
 # Shared utilities for the Vinoworld ELT pipeline.
 # Import from notebooks with:  from pipeline_utils import get_notebook_context
 # ---------------------------------------------------------------------------
+import traceback
 from pathlib import PurePosixPath
 from datetime import datetime, timezone
 from pyspark.sql.functions import current_timestamp, lit, col
@@ -51,8 +52,6 @@ def get_notebook_context(dbutils) -> dict:
 #
 # TracebackException handles chained exceptions (raise X from Y) and
 # exception groups (Python 3.11+) automatically.
-
-import traceback
 
 def capture_exception(exc: BaseException) -> dict:
     te = traceback.TracebackException.from_exception(exc)

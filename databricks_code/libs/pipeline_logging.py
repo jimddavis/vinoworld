@@ -24,6 +24,19 @@ from pyspark.sql.types import (
 )
 
 # ---------------------------------------------------------------------------
+# Status vocabulary — single source of truth for the audit-row status column.
+# notebook_init re-exports these so notebooks see STATUS_RUNNING etc; the
+# spark_python_task scripts (init_pipeline_run_log, finalize_pipeline_run_log)
+# import them directly since they don't run notebook_init.
+# ---------------------------------------------------------------------------
+
+STATUS_RUNNING   = "running"
+STATUS_SUCCEEDED = "succeeded"
+STATUS_FAILED    = "failed"
+STATUS_NO_FILES  = "no_files"
+
+
+# ---------------------------------------------------------------------------
 # Audit schema is set at runtime by notebook_init via configure().
 # All audit table names derive from this prefix so the module honors the
 # bundle target's catalog (dev_vinoworld / staging_vinoworld / vinoworld).
@@ -172,18 +185,18 @@ def pipeline_log_finalize(spark, pipeline_run_id: str):
             COLLECT_LIST(notebook_name) AS failed_notebooks
         FROM {_audit('pipeline_step_log')}
         WHERE pipeline_run_id = '{pipeline_run_id}'
-          AND status = 'failed'
+          AND status = '{STATUS_FAILED}'
     """).collect()[0]
 
     if failed["failed_count"] > 0:
-        status        = "failed"
+        status        = STATUS_FAILED
         error_message = (
             f"{failed['failed_count']} step(s) failed: "
             f"{', '.join(failed['failed_notebooks'])}. "
             f"See {_audit('pipeline_step_log')} for details."
         )
     else:
-        status        = "succeeded"
+        status        = STATUS_SUCCEEDED
         error_message = None
 
     pipeline_log_upsert(
