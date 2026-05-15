@@ -9,18 +9,7 @@ Protocol for completing one: see § 5 of `CLAUDE.md`. When complete, remove
 from this section and add the old-pattern tripwire to *Forbidden strings*
 below.
 
-### Step-log success close-out
-
-- **Old**: `pipeline_step_log_upsert` called only at start (`status="running"`)
-  and on failure. The success path never writes the close-out row, so the row
-  sits as `'running'` forever even when the pipeline succeeds.
-- **New canonical**: every notebook closes out its `pipeline_step_log` row
-  with `STATUS_SUCCEEDED` and `ended_timestamp` on the success path,
-  mirroring the `STATUS_FAILED` path.
-- **Status**: bronze (4/4), `slvr_02`, `slvr_04`, `gold_01` migrated.
-  `slvr_01_load_dim_fromcsv` and `slvr_03_load_dim_region` not yet migrated.
-- **Rule for new notebooks**: MUST close out.
-- **Old-pattern fixes**: in a dedicated branch, not opportunistically.
+_(none currently in flight)_
 
 ---
 
@@ -57,6 +46,21 @@ decision.
   `STATUS_FAILED`, `STATUS_NO_FILES` from `notebook_init`.
 - **Where to check**: every notebook cell that assigns the `status` variable
   before calling `pipeline_step_log_upsert` or `transform_detail_log_insert`.
+
+### Step-log close-out missing on success path
+
+- Old: notebooks called `pipeline_step_log_upsert(... STATUS_RUNNING ...)` at
+  start and only re-upserted on the failure path. The row stayed `'running'`
+  forever on success. Migration completed 2026-05-13 (PR #13). Last two
+  holdouts (`slvr_01`, `slvr_03`) closed during the remediation run.
+- **Replacement**: every notebook that opens its step-log row with
+  `STATUS_RUNNING` MUST also close it with a second `pipeline_step_log_upsert`
+  call passing `STATUS_SUCCEEDED` and `ended_timestamp` on the success path.
+  Multi-transform notebooks accumulate `rows_read` / `rows_written` across
+  per-transform cells and pass the totals at close-out (see deviations.md).
+- **Where to check**: every `databricks_code/notebooks/**/*.ipynb`. Tripwire:
+  if a notebook contains `STATUS_RUNNING` it must also contain
+  `STATUS_SUCCEEDED` (outside `%skip` cells).
 
 ---
 

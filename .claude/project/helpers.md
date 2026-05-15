@@ -10,7 +10,7 @@ capture, or notebook-context discovery.
 pipeline notebook (use `"../libs/notebook_init"` from root-level notebooks).
 It injects into the notebook's namespace:
 
-- **Constants**: `CATALOG`, `BRONZE`, `SILVER`, `GOLD`, `AUDIT`, `REPORTING`,
+- **Constants**: `CATALOG`, `BRONZE`, `SILVER`, `GOLD`, `AUDIT`,
   `RAW_FILES`, `STATUS_RUNNING`, `STATUS_SUCCEEDED`, `STATUS_FAILED`,
   `STATUS_NO_FILES`, `PIPELINE_RUN_ID`
 - **Modules**: `Utils` (= `pipeline_utils`), `pipeline_logging` functions
