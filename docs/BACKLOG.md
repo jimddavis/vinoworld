@@ -15,23 +15,22 @@ the protocol that puts items here.
 
 ## Next up (pull from here when planning the next branch)
 
-### Step-log success close-out — `slvr_01` and `slvr_03`
+### `vw_pipeline_run_summary.run_started` is STRING, not TIMESTAMP
 
-- **Surfaced**: 2026-05-12 on `new-claudemd` (Phase 1 audit).
-- **Problem**: both notebooks write `pipeline_step_log` at start with
-  `STATUS_RUNNING` but never close out to `STATUS_SUCCEEDED`. On a clean run
-  the row stays "running" forever, which is misleading for the audit views
-  and would suppress success in any downstream success-rate calculation.
-- **Canonical fix**: mirror the bronze / `slvr_02` / `slvr_04` / `gold_01`
-  pattern — call `pipeline_step_log_upsert(... STATUS_SUCCEEDED ...,
-  rows_read, rows_written, ended_timestamp, error_message)` on the success
-  path. See `.claude/project/migrations.md` "Step-log success close-out"
-  for the canonical contract.
-- **Scope**: dedicated branch, e.g. `fix-step-log-close-out`. Two files
-  changed, no cross-cutting impact.
-- **Atomic-migration protocol**: § 5 of `.claude/CLAUDE.md` applies.
-  Verify migration is complete by greping the success path of every
-  notebook for a final `pipeline_step_log_upsert` call.
+- **Surfaced**: 2026-05-15 on `feat/audit-failure-alert` (Phase 2 alert work).
+- **Problem**: the audit view exposes `run_started` as
+  `date_format(p.started_timestamp, 'yyyy-MM-dd HH:mm:ss')` — a string. Any
+  consumer that wants to filter on start time (alert, dashboard tile, ad-hoc
+  query) must wrap it in `to_timestamp(run_started, 'yyyy-MM-dd HH:mm:ss')`.
+  The current alert dodges this by filtering on `run_ended` instead.
+- **Canonical fix**: drop the `date_format` wrapper in
+  `libs/catalog_setup.create_audit_views`, expose the raw timestamp. Apply
+  any UI-side formatting at the consumer (dashboards, alerts), not in the
+  view.
+- **Scope**: one DDL change in `catalog_setup.py`; views are recreated by
+  re-running `setup/catalog_ddl.ipynb` (or the environment-setup job).
+  Verify nothing downstream — including the existing `sales_overview`
+  dashboard tiles — depends on the string format before changing.
 
 ---
 
@@ -56,7 +55,13 @@ the protocol that puts items here.
 
 ## Done
 
-*(empty — items move here when their branch merges)*
+### Step-log success close-out — `slvr_01` and `slvr_03`
+
+- **Resolved**: 2026-05-13 on `fix/05-chore-hygiene` (PR #13, part of the
+  first `/remediate-run` cycle). Both notebooks now close their step-log
+  row with `STATUS_SUCCEEDED` and `ended_timestamp` on the success path.
+  Forbidden-string tripwire added to `.claude/project/migrations.md` on
+  `chore/doc-drift-2026-05-15` (PR #14).
 
 ---
 
