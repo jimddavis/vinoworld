@@ -15,6 +15,30 @@ the protocol that puts items here.
 
 ## Next up (pull from here when planning the next branch)
 
+### Verde JSON source ships with pre-corrupted UTF-8
+
+- **Surfaced**: 2026-05-15 on `feat/bronze-source-encoding` (encoding refactor).
+- **Problem**: every Verde JSON file in `sampledata.zip` has the byte sequence
+  `EF BF BD` (UTF-8 encoding of U+FFFD, the Unicode replacement character) at
+  every position where a diacritic should appear. Confirmed by reading
+  directly out of the zip: 75 replacement chars across 8 files; 100% of
+  high-bit bytes in those files are part of replacement-char sequences.
+  Result: Verde rows in bronze/silver/gold show `Paj�`, `Ros�`, `Laf�a`,
+  `Gew�rztraminer` for diacritic positions.
+- **Why it can't be fixed at our layer**: the original byte information is
+  already gone before the file reaches us — there's no encoding option
+  that reverses U+FFFD back to the source character. brz_03's read is
+  doing the right thing for the bytes it's given.
+- **Canonical fix**: needs to happen upstream of the file generation —
+  whatever produces Verde JSON must preserve the source encoding (likely
+  windows-1252, matching Arancione/Celeste) end-to-end instead of running
+  through a `.decode('utf-8', errors='replace')` step.
+- **Scope**: zero code change here; this is a data-source coordination item.
+  Document for future contributors so the symptom isn't re-investigated.
+  When/if Verde upstream is fixed, no notebook code needs to change —
+  brz_03 already reads JSON as UTF-8 (the correct interpretation), and
+  the new files will simply contain real diacritics.
+
 ### `vw_pipeline_run_summary.run_started` is STRING, not TIMESTAMP
 
 - **Surfaced**: 2026-05-15 on `feat/audit-failure-alert` (Phase 2 alert work).
