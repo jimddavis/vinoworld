@@ -108,6 +108,25 @@ make informed judgment calls.
   column wasn't worth a schema change for a learning project.
 - **Apply where**: any join-to-dim flow that uses COALESCE → -1 fallback.
 
+## Multi-transform silver notebooks accumulate `rows_read`/`rows_written` across per-dim cells
+
+- **Best practice**: a step-log `STATUS_FAILED` close-out passes `0` for
+  `rows_read` and `rows_written`, since a single failed write means nothing
+  committed.
+- **This project**: `slvr_01_load_dim_fromcsv` runs N independent
+  `Utils.load_dim_from_csv` calls in sequence (one per dim CSV). Each per-dim
+  cell accumulates its `rows_read` / `rows_written` into notebook-level
+  counters. The except handler in each per-dim cell passes the
+  *accumulated* totals to `pipeline_step_log_upsert`, not 0.
+- **Why**: By the time dim N fails, dims 1..N-1 have already committed real
+  rows to their target tables. Setting the step-log totals to 0 would erase
+  that real persisted work from the audit trail. Per-dim granular detail is
+  still captured in `transform_detail_log`.
+- **Apply where**: only multi-transform notebooks where multiple independent
+  writes commit before any failure. Single-transform sibling notebooks
+  (`slvr_02`, `slvr_03`, bronze) keep the standard `0`-on-failure pattern,
+  because a single failed write means nothing committed.
+
 ---
 
 ## How to add a new deviation
